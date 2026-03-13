@@ -4,39 +4,49 @@ import os
 import queue
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from . import ChomikujDownloader, ChomikujUploader
-from .common import DEBUG, ChomikujError, load_default_env
+from .common import ChomikujError, load_default_env, resolve_default_env_path, save_env_values
 
 
 class ChomikujGui(tk.Tk):
     def __init__(self, script_path):
         super().__init__()
         env = load_default_env(script_path)
+        self.env_path = resolve_default_env_path(script_path)
         self.title("Chomikuj Magic Downloader Uploader")
-        self.geometry("1040x780")
-        self.minsize(920, 680)
+        self.geometry("1040x858")
+        self.minsize(920, 748)
 
         self.queue = queue.Queue()
         self.worker = None
         self.busy = False
         self.rows = {}
+        self.env_save_job = None
+        self.max_download_threads = max(1, (os.cpu_count() or 1) * 2)
 
         self.username_var = tk.StringVar(value=env.get("USERNAME", ""))
         self.password_var = tk.StringVar(value=env.get("PASSWORD", ""))
-        self.debug_var = tk.BooleanVar(value=False)
         self.download_output_var = tk.StringVar(value=os.getcwd())
-        self.download_threads_var = tk.IntVar(value=5)
+        self.download_threads_var = tk.IntVar(value=min(5, self.max_download_threads))
+        self.download_threads_label_var = tk.StringVar()
+        self.download_flatten_var = tk.BooleanVar(value=False)
         self.upload_folder_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Idle")
 
         self._build_ui()
+        self._refresh_threads_label()
+        self.username_var.trace_add("write", self._schedule_env_save)
+        self.password_var.trace_add("write", self._schedule_env_save)
+        self.download_threads_var.trace_add("write", self._refresh_threads_label)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(100, self._process_queue)
 
     def _build_ui(self):
         padding = {"padx": 10, "pady": 6}
+        style = ttk.Style(self)
+        style.configure("Activity.Treeview", rowheight=26)
 
         account = ttk.LabelFrame(self, text="Account")
         account.pack(fill="x", padx=10, pady=10)
@@ -49,9 +59,6 @@ class ChomikujGui(tk.Tk):
         ttk.Label(account, text="Password:").grid(row=1, column=0, sticky="w", **padding)
         self.password_entry = ttk.Entry(account, textvariable=self.password_var, show="*")
         self.password_entry.grid(row=1, column=1, sticky="ew", **padding)
-
-        self.debug_check = ttk.Checkbutton(account, text="Debug API", variable=self.debug_var)
-        self.debug_check.grid(row=0, column=2, rowspan=2, sticky="e", **padding)
 
         notebook = ttk.Notebook(self)
         notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -69,26 +76,19 @@ class ChomikujGui(tk.Tk):
         activity.columnconfigure(0, weight=1)
         activity.rowconfigure(0, weight=1)
         columns = ("kind", "state", "progress", "target")
-        self.activity = ttk.Treeview(activity, columns=columns, show="headings", height=10)
+        self.activity = ttk.Treeview(activity, columns=columns, show="headings", height=16, style="Activity.Treeview")
         self.activity.heading("kind", text="Kind")
         self.activity.heading("state", text="State")
         self.activity.heading("progress", text="Progress")
         self.activity.heading("target", text="Target")
         self.activity.column("kind", width=90, anchor="w")
         self.activity.column("state", width=120, anchor="w")
-        self.activity.column("progress", width=160, anchor="w")
-        self.activity.column("target", width=620, anchor="w")
+        self.activity.column("progress", width=180, anchor="w")
+        self.activity.column("target", width=700, anchor="w")
         self.activity.grid(row=0, column=0, sticky="nsew")
         activity_scroll = ttk.Scrollbar(activity, orient="vertical", command=self.activity.yview)
         activity_scroll.grid(row=0, column=1, sticky="ns")
         self.activity.configure(yscrollcommand=activity_scroll.set)
-
-        log_frame = ttk.LabelFrame(self, text="Log")
-        log_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        log_frame.columnconfigure(0, weight=1)
-        log_frame.rowconfigure(0, weight=1)
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, wrap="word", state="disabled")
-        self.log_text.grid(row=0, column=0, sticky="nsew")
 
         status = ttk.Frame(self)
         status.pack(fill="x", padx=10, pady=(0, 10))
@@ -110,9 +110,26 @@ class ChomikujGui(tk.Tk):
         self.output_button = ttk.Button(config, text="Browse", command=self._browse_output)
         self.output_button.grid(row=0, column=2, **padding)
 
-        ttk.Label(config, text="Threads:").grid(row=1, column=0, sticky="w", **padding)
-        self.threads_spin = ttk.Spinbox(config, from_=1, to=16, textvariable=self.download_threads_var, width=8)
-        self.threads_spin.grid(row=1, column=1, sticky="w", **padding)
+        ttk.Label(config, text="Workers:").grid(row=1, column=0, sticky="w", **padding)
+        self.threads_scale = tk.Scale(
+            config,
+            from_=1,
+            to=self.max_download_threads,
+            orient="horizontal",
+            variable=self.download_threads_var,
+            resolution=1,
+            showvalue=False,
+            highlightthickness=0,
+        )
+        self.threads_scale.grid(row=1, column=1, sticky="ew", **padding)
+        ttk.Label(config, textvariable=self.download_threads_label_var, width=10).grid(row=1, column=2, sticky="w", **padding)
+
+        self.flatten_check = ttk.Checkbutton(
+            config,
+            text="Flatten initial tree",
+            variable=self.download_flatten_var,
+        )
+        self.flatten_check.grid(row=2, column=1, sticky="w", **padding)
 
         urls_frame = ttk.LabelFrame(parent, text="URLs (one per line)")
         urls_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
@@ -165,6 +182,31 @@ class ChomikujGui(tk.Tk):
         self.upload_button = ttk.Button(actions, text="Start Upload", command=self._start_upload)
         self.upload_button.pack(side="right")
 
+    def _schedule_env_save(self, *_):
+        if self.env_save_job is not None:
+            self.after_cancel(self.env_save_job)
+        self.env_save_job = self.after(120, self._save_credentials_to_env)
+
+    def _save_credentials_to_env(self):
+        self.env_save_job = None
+        try:
+            save_env_values(
+                self.env_path,
+                {
+                    "USERNAME": self.username_var.get().strip(),
+                    "PASSWORD": self.password_var.get(),
+                },
+            )
+        except OSError as exc:
+            self.status_var.set(f"Blad zapisu .env: {exc}")
+
+    def _refresh_threads_label(self, *_):
+        value = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
+        if value != self.download_threads_var.get():
+            self.download_threads_var.set(value)
+            return
+        self.download_threads_label_var.set(f"{value} / {self.max_download_threads}")
+
     def _browse_output(self):
         path = filedialog.askdirectory(initialdir=self.download_output_var.get() or os.getcwd())
         if path:
@@ -207,7 +249,8 @@ class ChomikujGui(tk.Tk):
             self.password_entry,
             self.output_entry,
             self.output_button,
-            self.threads_spin,
+            self.threads_scale,
+            self.flatten_check,
             self.download_button,
             self.download_clear_button,
             self.remote_folder_entry,
@@ -215,7 +258,6 @@ class ChomikujGui(tk.Tk):
             self.add_folder_button,
             self.upload_button,
             self.upload_clear_button,
-            self.debug_check,
         ):
             widget.configure(state=state)
         if busy:
@@ -227,7 +269,6 @@ class ChomikujGui(tk.Tk):
             return
         self._set_busy(True)
         self.status_var.set(label)
-        self._log(f"START {label}")
         self.worker = threading.Thread(target=self._worker_main, args=(worker, args), daemon=True)
         self.worker.start()
 
@@ -262,9 +303,9 @@ class ChomikujGui(tk.Tk):
             messagebox.showerror("Error", "Podaj co najmniej jeden URL do pobrania.")
             return
         output = self.download_output_var.get().strip() or os.getcwd()
-        threads = max(1, int(self.download_threads_var.get() or 1))
-        debug = bool(self.debug_var.get())
-        self._start_worker("Downloading...", self._download_worker, username, password, urls, output, threads, debug)
+        threads = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
+        flatten = bool(self.download_flatten_var.get())
+        self._start_worker("Downloading...", self._download_worker, username, password, urls, output, threads, flatten)
 
     def _start_upload(self):
         try:
@@ -277,33 +318,29 @@ class ChomikujGui(tk.Tk):
             messagebox.showerror("Error", "Podaj co najmniej jeden plik lub folder do uploadu.")
             return
         folder = self.upload_folder_var.get().strip()
-        debug = bool(self.debug_var.get())
-        self._start_worker("Uploading...", self._upload_worker, username, password, paths, folder, debug)
+        self._start_worker("Uploading...", self._upload_worker, username, password, paths, folder)
 
-    def _download_worker(self, username, password, urls, output, threads, debug):
+    def _download_worker(self, username, password, urls, output, threads, flatten):
         os.makedirs(output, exist_ok=True)
         downloader = ChomikujDownloader(
             username,
             password,
             threads,
             output,
-            debug or DEBUG,
             password_provider=self.password,
             status_sink=self,
-            debug_hook=self.debug,
+            flatten=flatten,
         )
         for url in urls:
             downloader.handle_url(url)
         downloader.wait()
 
-    def _upload_worker(self, username, password, paths, folder, debug):
+    def _upload_worker(self, username, password, paths, folder):
         uploader = ChomikujUploader(
             username,
             password,
-            debug or DEBUG,
             password_provider=self.password,
             status_sink=self,
-            debug_hook=self.debug,
         )
         uploader.upload_files(paths, folder=folder)
 
@@ -317,15 +354,11 @@ class ChomikujGui(tk.Tk):
             kind = action[0]
             if kind == "done":
                 self.status_var.set(action[1])
-                self._log(f"OK   {action[1]}")
             elif kind == "error":
                 self.status_var.set(action[1])
-                self._log(f"ERR  {action[1]}")
                 messagebox.showerror("Error", action[1])
             elif kind == "worker_finished":
                 self._set_busy(False)
-            elif kind == "log":
-                self._log(action[1])
             elif kind == "task":
                 self._update_task(*action[1:])
             elif kind == "password_prompt":
@@ -338,18 +371,12 @@ class ChomikujGui(tk.Tk):
                 event.set()
         self.after(100, self._process_queue)
 
-    def _log(self, message):
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", message + "\n")
-        self.log_text.see("end")
-        self.log_text.configure(state="disabled")
-
     def _task_key(self, kind, path):
         return f"{kind}:{path}"
 
     def _format_progress(self, current, total):
         if total:
-            percent = int((current / total) * 100) if total else 0
+            percent = int((current / total) * 100)
             return f"{percent}% ({current}/{total})"
         if current:
             return str(current)
@@ -360,6 +387,8 @@ class ChomikujGui(tk.Tk):
         row_id = self.rows.get(row_key)
         progress = self._format_progress(current or 0, total)
         target_text = target or path
+        if error_text:
+            target_text = f"{target_text} ({error_text})"
         values = (kind, state, progress, target_text)
         if not row_id:
             row_id = f"row_{len(self.rows) + 1}"
@@ -368,10 +397,6 @@ class ChomikujGui(tk.Tk):
         else:
             self.activity.item(row_id, values=values)
         self.status_var.set(f"{kind}: {state}")
-        if state in ("finished", "skipped", "failed"):
-            prefix = {"finished": "OK  ", "skipped": "SKIP", "failed": "ERR "}[state]
-            suffix = f" ({error_text})" if error_text else ""
-            self._log(f"{prefix} {target_text}{suffix}")
 
     def _push(self, action, *payload):
         self.queue.put((action, *payload))
@@ -382,9 +407,6 @@ class ChomikujGui(tk.Tk):
         self._push("password_prompt", kind, identifier, event, box)
         event.wait()
         return box.get("value", "")
-
-    def debug(self, message):
-        self._push("log", message)
 
     def download_queued(self, path):
         self._push("task", "download", "queued", path, 0, None, None, None)
