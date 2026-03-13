@@ -69,11 +69,6 @@ class ChomikujDownloader(ChomikujBase):
             if entry is not None:
                 self.queue_file_by_id(entry["FileId"], self.file_name(entry), "/".join(resolved))
                 return
-        file_id = self.extract_file_id(segments[-1])
-        if file_id:
-            rel_dir = "/".join(self.clean(part) for part in segments[:-1])
-            self.queue_file_by_id(file_id, self.guess_file_name(segments[-1]), rel_dir)
-            return
         raise ChomikujError(f"Nie udalo sie rozpoznac URL-a przez nowe API: {url}")
 
     def wait(self):

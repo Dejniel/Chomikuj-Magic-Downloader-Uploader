@@ -19,6 +19,7 @@ class ChomikujBase:
         self.folder_passwords = {}
 
     def clean(self, value):
+        value = re.sub(r"\*([0-9a-fA-F]{2})", r"%\1", str(value))
         return unquote_plus(value).strip().strip("/")
 
     def same_name(self, left, right):
@@ -28,11 +29,6 @@ class ChomikujBase:
         name = entry.get("FileName") or ""
         ext = (entry.get("FileType") or "").strip()
         return f"{name}.{ext}" if ext and not name.lower().endswith("." + ext.lower()) else name
-
-    def guess_file_name(self, segment):
-        segment = self.clean(segment)
-        match = re.match(r"^(.*?),\d+(\.[^./]+)?$", segment)
-        return (match.group(1) + (match.group(2) or "")).strip() if match else segment
 
     def account_password(self, owner_name):
         if owner_name not in self.account_passwords:
@@ -162,7 +158,7 @@ class ChomikujBase:
             for entry in listing["Files"]:
                 if str(entry.get("FileId")) == file_id:
                     return entry
-        names = {self.clean(segment).casefold(), self.clean(self.guess_file_name(segment)).casefold()}
+        names = {self.clean(segment).casefold()}
         for entry in listing["Files"]:
             if self.clean(self.file_name(entry)).casefold() in names:
                 return entry
