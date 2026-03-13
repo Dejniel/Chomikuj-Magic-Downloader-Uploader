@@ -12,10 +12,10 @@ Now you can upload and download chomikuj.pl on Windows, Linux, and macOS as a st
 - Python 3.8+
 - pip install -r requirements.txt
 - (optional) if you do not want to enter the password every time, put credentials in `.env` in the project directory:
-```env
-USERNAME=your_login
-PASSWORD=your_password
-```
+  ```env
+  USERNAME=your_login
+  PASSWORD=your_password
+  ```
 - (optional, GUI only) if `tkinter` is missing, install it from your system packages:
   Linux (Ubuntu/Debian): `sudo apt install python3-tk`
   macOS (Homebrew Python): `brew install python-tk`
@@ -23,7 +23,7 @@ PASSWORD=your_password
 ## Quick start (GUI)
 - If no arguments are provided, a GUI opens. You can download, upload with one button,
   choose a file, and work. Run with no arguments:
-  ```
+  ```bash
   python3 chomikuj_magic_downloader_uploader.py
   ```
 ## Quick start (CLI)
