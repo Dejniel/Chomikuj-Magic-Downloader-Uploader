@@ -4,6 +4,8 @@ Alternative desktop client for chomikuj.pl that includes a Downloader and Upload
 
 Now you can upload and download chomikuj.pl on Windows, Linux, and macOS as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
 
+![Chomikuj Magic Downloader Uploader LOGO Hamster](chomikuj_magic.png)
+
 ## We need you!
 - This project is open source! Your small monthly support on [Buy Me a Coffee](https://buymeacoffee.com/dejniel) can make a real difference and help keep it going—even a one-time donation helps. Building and maintaining a project like this takes a lot of time; if you find it useful, please consider supporting it so I can keep improving it: [support the project](https://buymeacoffee.com/dejniel)
 - If you're a developer, contributions and bug reports are always welcome—please jump in. Especially if you use or build on non-Linux systems, please consider contributing fixes or improvements
