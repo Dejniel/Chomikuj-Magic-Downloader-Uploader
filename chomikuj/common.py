@@ -37,3 +37,10 @@ def load_env(path=".env"):
             key, value = line.split("=", 1)
             env[key.strip()] = value.strip()
     return env
+
+
+def load_default_env(script_path):
+    env_path = ".env"
+    if not os.path.exists(env_path):
+        env_path = os.path.join(os.path.dirname(os.path.abspath(script_path)), ".env")
+    return load_env(env_path)
