@@ -29,6 +29,7 @@ def build_parser():
     download.add_argument("urls", nargs="+", help="Jeden lub wiecej linkow z chomikuj.pl do pobrania.")
     download.add_argument("-o", "--output", default=os.getcwd(), help="Katalog docelowy. Domyslnie: biezacy katalog.")
     download.add_argument("-t", "--threads", type=int, default=5, help="Liczba rownoleglych pobran. Domyslnie: 5.")
+    download.add_argument("--flatten", action="store_true", help="Nie odtwarzaj poczatkowego drzewa URL-a. Pliki trafiaja bezposrednio do katalogu docelowego.")
     download.add_argument("-v", "--debug", action="store_true", help="Wypisz debug logi requestow API.")
 
     upload = commands.add_parser("upload", help="Upload lokalnych plikow lub katalogow na twoje konto.")
@@ -58,6 +59,7 @@ def run_cli(argv, script_path):
                 password_provider=ui.password,
                 status_sink=ui,
                 debug_hook=ui.debug,
+                flatten=args.flatten,
             )
             for url in args.urls:
                 downloader.handle_url(url)

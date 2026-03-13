@@ -5,7 +5,7 @@ import re
 
 BASE_URL = "https://mobile.chomikuj.pl"
 DEBUG = False
-TIMEOUT = 60
+TIMEOUT = 15
 RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 1
 USER_AGENT = "android/3.8.4 (python; python)"
@@ -52,8 +52,44 @@ def load_env(path=".env"):
     return env
 
 
-def load_default_env(script_path):
+def resolve_default_env_path(script_path):
     env_path = ".env"
-    if not os.path.exists(env_path):
-        env_path = os.path.join(os.path.dirname(os.path.abspath(script_path)), ".env")
-    return load_env(env_path)
+    if os.path.exists(env_path):
+        return env_path
+    return os.path.join(os.path.dirname(os.path.abspath(script_path)), ".env")
+
+
+def load_default_env(script_path):
+    return load_env(resolve_default_env_path(script_path))
+
+
+def save_env_values(path, values):
+    existing_lines = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as handle:
+            existing_lines = handle.readlines()
+
+    keys = set(values)
+    updated = []
+    seen = set()
+    for raw_line in existing_lines:
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in raw_line:
+            updated.append(raw_line)
+            continue
+        key, _ = raw_line.split("=", 1)
+        key = key.strip()
+        if key in keys:
+            updated.append(f"{key}={values[key]}\n")
+            seen.add(key)
+            continue
+        updated.append(raw_line)
+
+    for key in values:
+        if key not in seen:
+            if updated and not updated[-1].endswith("\n"):
+                updated[-1] += "\n"
+            updated.append(f"{key}={values[key]}\n")
+
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.writelines(updated)
