@@ -1,8 +1,8 @@
 # Chomikuj Magic
 
-Alternative desktop client for chomikuj.pl that includes a Downloader and Uploader, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps. Check the [huge list of supported features](#available-features)
+Alternative desktop client for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
-Now you can upload and download chomikuj.pl on Windows, Linux, and macOS as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
+Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
 
 ![Chomikuj Magic Downloader Uploader LOGO Hamster](chomikuj_magic.png)
 
