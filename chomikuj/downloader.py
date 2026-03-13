@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import threading
 
 from .base import ChomikujBase
-from .common import ChomikujError
+from .common import ChomikujError, FileUnavailableError
 from .download_item import DownloadItem
 
 
@@ -21,8 +22,14 @@ class ChomikujDownloader(ChomikujBase):
     def download_url(self, file_id):
         payload = self.api.files_download(file_id)
         code = payload.get("Code")
+        message = (payload.get("Message") or "").strip()
+        if code == 604:
+            raise FileUnavailableError(file_id, code, message)
         if code not in (0, 605):
-            raise ChomikujError(f"Blad files/download dla fileId={file_id}: {code}")
+            suffix = f": {code}"
+            if message:
+                suffix += f" {message}"
+            raise ChomikujError(f"Blad files/download dla fileId={file_id}{suffix}")
         if not payload.get("FileUrl"):
             raise ChomikujError(f"Brak FileUrl dla fileId={file_id}")
         return payload["FileUrl"]
@@ -48,7 +55,14 @@ class ChomikujDownloader(ChomikujBase):
     def add_folder_recursive(self, owner, folder_id, rel_dir):
         listing = self.list_folder(owner, folder_id)
         for entry in listing["Files"]:
-            self.queue_file_by_id(entry["FileId"], self.file_name(entry), rel_dir)
+            file_name = self.file_name(entry)
+            try:
+                self.queue_file_by_id(entry["FileId"], file_name, rel_dir)
+            except FileUnavailableError:
+                skipped_path = os.path.normpath(os.path.join(self.output_dir, rel_dir.strip("/"), file_name) if rel_dir else os.path.join(self.output_dir, file_name))
+                if self.status_sink:
+                    self.status_sink.download_skipped(skipped_path)
+                continue
         for folder in listing["Folders"]:
             child_rel_dir = f"{rel_dir}/{folder['Name']}".strip("/")
             self.add_folder_recursive(owner, folder["Id"], child_rel_dir)
@@ -68,6 +82,12 @@ class ChomikujDownloader(ChomikujBase):
             entry = self.find_file_in_folder(owner, parent_id, segments[-1])
             if entry is not None:
                 self.queue_file_by_id(entry["FileId"], self.file_name(entry), "/".join(resolved))
+                return
+        page_segment = re.sub(r",\d+$", "", segments[-1]).strip() if segments else ""
+        if page_segment and page_segment != segments[-1]:
+            folder_id, _ = self.resolve_folder_path(owner, segments[:-1] + [page_segment])
+            if folder_id is not None:
+                self.add_folder_recursive(owner, folder_id, "")
                 return
         raise ChomikujError(f"Nie udalo sie rozpoznac URL-a przez nowe API: {url}")
 

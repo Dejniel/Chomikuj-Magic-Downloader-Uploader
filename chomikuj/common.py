@@ -17,6 +17,19 @@ class ChomikujError(RuntimeError):
     pass
 
 
+class FileUnavailableError(ChomikujError):
+    def __init__(self, file_id, code=None, message=""):
+        text = f"Plik niedostepny w API dla fileId={file_id}"
+        if code is not None:
+            text += f": {code}"
+        if message:
+            text += f" {message}"
+        super().__init__(text)
+        self.file_id = str(file_id)
+        self.code = code
+        self.api_message = message
+
+
 class ApiRequestError(ChomikujError):
     def __init__(self, status, code=None, message="", body=""):
         super().__init__(message or f"HTTP {status}")
