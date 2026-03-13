@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-
+# TODO: DO NOT READ. This code is waiting to be rewritten :P
+# One day I?ll refactor the whole GUI properly;
+# for now, the terrible single-file monolith stays.
 import os
 import queue
 import threading
