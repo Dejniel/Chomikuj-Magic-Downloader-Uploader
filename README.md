@@ -16,6 +16,9 @@ Now you can upload and download chomikuj.pl on Windows, Linux, and macOS as a st
 USERNAME=your_login
 PASSWORD=your_password
 ```
+- (optional, GUI only) if `tkinter` is missing, install it from your system packages:
+  Linux (Ubuntu/Debian): `sudo apt install python3-tk`
+  macOS (Homebrew Python): `brew install python-tk`
 
 ## Quick start (GUI)
 - If no arguments are provided, a GUI opens. You can download, upload with one button,
@@ -28,13 +31,13 @@ PASSWORD=your_password
 Download a single file:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3(audio)"
+python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3"
 ```
 
 Download a whole folder:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka,2"
+python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka"
 ```
 
 Upload a file to the root directory:
