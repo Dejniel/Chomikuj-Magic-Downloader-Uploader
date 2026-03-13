@@ -1,8 +1,8 @@
-# Chomikuj Magic 
+# Chomikuj Magic
 
-Alternative desktop software klient for chomikuj.pl that include Downloader and Uploder, supports resursive folders download/uploadd, and works asynchronious on many file at the time. It replache ChomikujBox and other chomikuj.pl aps. Check the [huge list of supported funcionality](#funkcjonalnosci).
-Now you can upload and dowload chomikuj.pl!
-on Windows, Linux, and macOS as a standalone tool using chomikuj new json v3 api insted of old soap xml api
+Alternative desktop client for chomikuj.pl that includes a Downloader and Uploader, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps. Check the [huge list of supported features](#available-features)
+
+Now you can upload and download chomikuj.pl on Windows, Linux, and macOS as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
 
 ## We need you!
 - This project is open source! Your small monthly support on [Buy Me a Coffee](https://buymeacoffee.com/dejniel) can make a real difference and help keep it going—even a one-time donation helps. Building and maintaining a project like this takes a lot of time; if you find it useful, please consider supporting it so I can keep improving it: [support the project](https://buymeacoffee.com/dejniel)
@@ -11,65 +11,70 @@ on Windows, Linux, and macOS as a standalone tool using chomikuj new json v3 api
 ## Requirements
 - Python 3.8+
 - pip install -r requirements.txt
-- jesli nie chcesz wpisywać hasla za każdym razem umiesc credensials w  `.env` w katalogu projektu:
+- (optional) if you do not want to enter the password every time, put credentials in `.env` in the project directory:
 ```env
-USERNAME=twoj_login
-PASSWORD=twoje_haslo
+USERNAME=your_login
+PASSWORD=your_password
 ```
 
 ## Quick start (GUI)
 - If no arguments are provided, a GUI opens. You can download, upload with one button,
   choose a file, and work. Run with no arguments:
   ```
-  python3 timiniprint.py
+  python3 chomikuj_magic_downloader_uploader.py
   ```
 ## Quick start (CLI)
 
-Pobranie jednego pliku:
+Download a single file:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/Topola10/GALERIA/GIF/gif/szesciany,4422213476.gif"
+python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3(audio)"
 ```
 
-Pobranie całego folderu:
+Download a whole folder:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/mariusz1900/Dokumenty"
+python3 chomikuj_magic_downloader_uploader.py download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka,2"
 ```
 
-Upload pliku do katalogu glownego:
+Upload a file to the root directory:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py upload ./plik.txt
+python3 chomikuj_magic_downloader_uploader.py upload ./file.txt
 ```
 
-Upload katalogu lokalnego rekurencyjnie:
+Upload a local folder recursively:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py upload ./moj_folder
+python3 chomikuj_magic_downloader_uploader.py upload ./my_folder
 ```
 
-Upload do wskazanego folderu na twoim koncie:
+Upload to a selected folder on your account:
 
 ```bash
-python3 chomikuj_magic_downloader_uploader.py upload ./plik.txt --folder "Dokumenty/Test"
+python3 chomikuj_magic_downloader_uploader.py upload ./file.txt --folder "Documents/Test"
 ```
 
-Uzycie wiekszej ilosci workerow do downloadu/uploadu
-TODO przyklad
+Use more download workers:
 
-wyswietlenie pomocy
-TODO komenda
+```bash
+python3 chomikuj_magic_downloader_uploader.py download -t 8 "https://chomikuj.pl/Adam26121996/Tapety+na+komórkę/Śmieszne"
+```
 
-## Uwaga
+Show help:
+
+```bash
+python3 chomikuj_magic_downloader_uploader.py --help
+```
+
+## Warning
 - Theoretically, I support Windows, macOS, and Linux, but I test builds only on Ubuntu-like systems—if you need to run this elsewhere, please report issues or submit a fix :P
-- Projekt jest opensouce i może używać niepublicznych api - nie ma żadncej gwaracji. Przy użyciu mogą zostać napiczone opłaty, nie kożystaj jeśli nie jesteś pewien co robisz **PROGRAM NIGDY NIE PYTA OSTRZEZENIA O WIELKOSCI POBIERANYCH FOLDEROW**
+- This project is open source and may use non-public APIs - there is no guarantee of anything. Charges may be applied while using it, so do not use it if you are not sure what you are doing. **THE PROGRAM NEVER SHOWS A WARNING ABOUT THE SIZE OF DOWNLOADED FOLDERS**
 
-# dostepne unkcje
-- logowanie do chomikuj
-- pobieranie pojedynczych plików i całych folderów
-- upload lokalnych plikow na swoje konto
-- wznawianie pobierania prze pliki tymczasowe .part
-- upload chunkowany , mozliwe wznowienie
-- wrapper na inne fukcje api jeszcze nie wykorzystane
-
+# Available features
+- login to Chomikuj
+- download single files and whole folders
+- upload local files to your own account
+- resume downloads through temporary `.part` files
+- chunked upload, resume possible
+- wrapper for other API functions not yet used
