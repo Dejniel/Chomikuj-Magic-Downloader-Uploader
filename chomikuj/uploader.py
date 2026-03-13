@@ -45,7 +45,7 @@ class ChomikujUploader(ChomikujBase):
             owner_name, segments = self.split_url(folder)
             owner = self.current_owner()
             if not self.same_name(owner_name, owner["name"]):
-                raise ChomikujError("Upload mozliwy tylko na wlasne konto")
+                raise ChomikujError("Upload is only possible to your own account")
             return segments
         return [self.clean(part) for part in folder.split("/") if self.clean(part)]
 
@@ -61,7 +61,7 @@ class ChomikujUploader(ChomikujBase):
         listing = self.list_folder(owner, parent_id)
         folder = self.find_named_folder(listing["Folders"], folder_name)
         if folder is None:
-            raise ChomikujError(f"Nie udalo sie utworzyc folderu zdalnego: {folder_name}")
+            raise ChomikujError(f"Failed to create remote folder: {folder_name}")
         return str(folder["Id"]), folder["Name"]
 
     def ensure_remote_folder_path(self, owner, segments):
@@ -112,13 +112,13 @@ class ChomikujUploader(ChomikujBase):
         try:
             response = requests.post(upload_url, headers=headers, data=body, timeout=TIMEOUT)
         except requests.RequestException as exc:
-            raise ChomikujError(f"Blad polaczenia podczas uploadu {path}: {exc}") from exc
+            raise ChomikujError(f"Connection error during upload of {path}: {exc}") from exc
         return response.status_code, next_offset
 
     def _upload_file_to_folder(self, path, owner, folder_id, resolved):
         local_path = os.path.abspath(path)
         if not os.path.isfile(local_path):
-            raise ChomikujError(f"To nie jest plik do uploadu: {path}")
+            raise ChomikujError(f"This is not a file for upload: {path}")
         name = os.path.basename(local_path)
         size = os.path.getsize(local_path)
         crc = self._crc32(local_path)
@@ -130,8 +130,8 @@ class ChomikujUploader(ChomikujBase):
             return
         upload_url = payload.get("Url")
         if not upload_url:
-            self._emit("upload_failed", local_path, ChomikujError(f"Brak Url po partialUpload dla pliku: {path}"), target)
-            raise ChomikujError(f"Brak Url po partialUpload dla pliku: {path}")
+            self._emit("upload_failed", local_path, ChomikujError(f"Missing URL after partialUpload for file: {path}"), target)
+            raise ChomikujError(f"Missing URL after partialUpload for file: {path}")
         uploaded = int(payload.get("Chunk") or 0)
         self._emit("upload_progress", local_path, uploaded, size, target)
         while True:
@@ -143,24 +143,24 @@ class ChomikujUploader(ChomikujBase):
             if status == 206:
                 continue
             if status == 408:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload timeout dla pliku: {path}"), target)
-                raise ChomikujError(f"Upload timeout dla pliku: {path}")
+                self._emit("upload_failed", local_path, ChomikujError(f"Upload timeout for file: {path}"), target)
+                raise ChomikujError(f"Upload timeout for file: {path}")
             if status == 409:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload conflict dla pliku: {path}"), target)
-                raise ChomikujError(f"Upload conflict dla pliku: {path}")
+                self._emit("upload_failed", local_path, ChomikujError(f"Upload conflict for file: {path}"), target)
+                raise ChomikujError(f"Upload conflict for file: {path}")
             if status == 410:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload session wygasla dla pliku: {path}"), target)
-                raise ChomikujError(f"Upload session wygasla dla pliku: {path}")
+                self._emit("upload_failed", local_path, ChomikujError(f"Upload session expired for file: {path}"), target)
+                raise ChomikujError(f"Upload session expired for file: {path}")
             if status == 500:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload internal error dla pliku: {path}"), target)
-                raise ChomikujError(f"Upload internal error dla pliku: {path}")
-            self._emit("upload_failed", local_path, ChomikujError(f"Nieznany blad uploadu {status} dla {path} do {target}"), target)
-            raise ChomikujError(f"Nieznany blad uploadu {status} dla {path} do {target}")
+                self._emit("upload_failed", local_path, ChomikujError(f"Upload internal error for file: {path}"), target)
+                raise ChomikujError(f"Upload internal error for file: {path}")
+            self._emit("upload_failed", local_path, ChomikujError(f"Unknown upload error {status} for {path} to {target}"), target)
+            raise ChomikujError(f"Unknown upload error {status} for {path} to {target}")
 
     def _upload_directory_to_folder(self, path, owner, folder_id, resolved):
         local_dir = os.path.abspath(path)
         if not os.path.isdir(local_dir):
-            raise ChomikujError(f"To nie jest katalog do uploadu: {path}")
+            raise ChomikujError(f"This is not a directory for upload: {path}")
         local_name = os.path.basename(os.path.normpath(local_dir))
         remote_folder_id, remote_resolved = self.ensure_remote_folder_path(owner, resolved + [local_name])
         entries = sorted(os.listdir(local_dir), key=str.casefold)
@@ -180,4 +180,4 @@ class ChomikujUploader(ChomikujBase):
             elif os.path.isdir(local_path):
                 self._upload_directory_to_folder(local_path, owner, folder_id, resolved)
             else:
-                raise ChomikujError(f"Nieobslugiwana sciezka do uploadu: {path}")
+                raise ChomikujError(f"Unsupported upload path: {path}")

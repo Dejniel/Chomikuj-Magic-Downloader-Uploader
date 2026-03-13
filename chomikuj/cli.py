@@ -20,22 +20,22 @@ def normalize_argv(argv):
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="chomikuj_magic_downloader_uploader.py",
-        description="Pobiera i wysyla pliki przez nowe API mobilne Chomikuj.",
-        epilog="Login i haslo sa brane z .env (USERNAME, PASSWORD) z biezacego katalogu, a jesli go tam nie ma to z katalogu skryptu. Gdy ich brakuje program zapyta o nie interaktywnie.",
+        description="Download and upload files through the new Chomikuj mobile API.",
+        epilog="Login and password are read from .env (USERNAME, PASSWORD) in the current directory, and if it is missing then from the script directory. If they are still missing the program will ask for them interactively.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    download = commands.add_parser("download", help="Pobieranie plikow i folderow z linkow chomikuj.pl.")
-    download.add_argument("urls", nargs="+", help="Jeden lub wiecej linkow z chomikuj.pl do pobrania.")
-    download.add_argument("-o", "--output", default=os.getcwd(), help="Katalog docelowy. Domyslnie: biezacy katalog.")
-    download.add_argument("-t", "--threads", type=int, default=5, help="Liczba rownoleglych pobran. Domyslnie: 5.")
-    download.add_argument("--flatten", action="store_true", help="Nie odtwarzaj poczatkowego drzewa URL-a. Pliki trafiaja bezposrednio do katalogu docelowego.")
-    download.add_argument("-v", "--debug", action="store_true", help="Wypisz debug logi requestow API.")
+    download = commands.add_parser("download", help="Download files and folders from chomikuj.pl links.")
+    download.add_argument("urls", nargs="+", help="One or more chomikuj.pl links to download.")
+    download.add_argument("-o", "--output", default=os.getcwd(), help="Destination directory. Default: current directory.")
+    download.add_argument("-t", "--threads", type=int, default=5, help="Number of concurrent downloads. Default: 5.")
+    download.add_argument("--flatten", action="store_true", help="Do not recreate the initial URL tree. Files go directly into the destination directory.")
+    download.add_argument("-v", "--debug", action="store_true", help="Print API request debug logs.")
 
-    upload = commands.add_parser("upload", help="Upload lokalnych plikow lub katalogow na twoje konto.")
-    upload.add_argument("paths", nargs="+", help="Lokalne pliki lub katalogi do wyslania. Katalogi sa wrzucane rekurencyjnie.")
-    upload.add_argument("--folder", default="", help="Sciezka zdalnego folderu na twoim koncie albo URL folderu. Domyslnie: katalog glowny.")
-    upload.add_argument("-v", "--debug", action="store_true", help="Wypisz debug logi requestow API.")
+    upload = commands.add_parser("upload", help="Upload local files or folders to your account.")
+    upload.add_argument("paths", nargs="+", help="Local files or folders to upload. Directories are uploaded recursively.")
+    upload.add_argument("--folder", default="", help="Remote folder path on your account or a folder URL. Default: root directory.")
+    upload.add_argument("-v", "--debug", action="store_true", help="Print API request debug logs.")
     return parser
 
 
@@ -75,7 +75,7 @@ def run_cli(argv, script_path):
             )
             uploader.upload_files(args.paths, folder=args.folder)
     except KeyboardInterrupt:
-        error = "Przerwano przez uzytkownika."
+        error = "Interrupted by user."
     except ChomikujError as exc:
         error = str(exc)
     finally:

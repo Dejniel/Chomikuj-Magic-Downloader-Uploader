@@ -76,7 +76,7 @@ class DownloadItem(threading.Thread):
                                     os.replace(part_path, self.path)
                                     self._emit("download_finished", self.path, expected_size, total_size)
                                     return
-                                raise ChomikujError(f"Brak danych do wznowienia pobierania: {self.path}")
+                                raise ChomikujError(f"Missing data to resume download: {self.path}")
                             if response.status_code == 200 and mode == "ab":
                                 local_size = 0
                                 mode = "wb"
@@ -103,7 +103,7 @@ class DownloadItem(threading.Thread):
                     except requests.RequestException as exc:
                         is_timeout = isinstance(exc, requests.Timeout) or "timed out" in str(exc).lower()
                         if is_timeout and attempt >= RETRY_ATTEMPTS:
-                            raise ChomikujError(f"Timeout pobierania {self.path} po {RETRY_ATTEMPTS} probach: {exc}") from exc
+                            raise ChomikujError(f"Download timeout for {self.path} after {RETRY_ATTEMPTS} attempts: {exc}") from exc
                         if not is_timeout:
                             raise
                         time.sleep(RETRY_BACKOFF_SECONDS * attempt)

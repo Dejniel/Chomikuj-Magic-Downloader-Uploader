@@ -198,7 +198,7 @@ class ChomikujGui(tk.Tk):
                 },
             )
         except OSError as exc:
-            self.status_var.set(f"Blad zapisu .env: {exc}")
+            self.status_var.set(f"Failed to save .env: {exc}")
 
     def _refresh_threads_label(self, *_):
         value = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
@@ -237,7 +237,7 @@ class ChomikujGui(tk.Tk):
         return [line.strip() for line in widget.get("1.0", "end-1c").splitlines() if line.strip()]
 
     def _on_close(self):
-        if self.busy and not messagebox.askyesno("Close", "Operacja nadal trwa. Zamknac mimo to?"):
+        if self.busy and not messagebox.askyesno("Close", "An operation is still running. Close anyway?"):
             return
         self.destroy()
 
@@ -265,7 +265,7 @@ class ChomikujGui(tk.Tk):
 
     def _start_worker(self, label, worker, *args):
         if self.busy:
-            messagebox.showinfo("Busy", "Poczekaj na zakonczenie biezacej operacji.")
+            messagebox.showinfo("Busy", "Wait for the current operation to finish.")
             return
         self._set_busy(True)
         self.status_var.set(label)
@@ -287,9 +287,9 @@ class ChomikujGui(tk.Tk):
         username = self.username_var.get().strip()
         password = self.password_var.get()
         if not username:
-            raise ChomikujError("Brak username.")
+            raise ChomikujError("Missing username.")
         if not password:
-            raise ChomikujError("Brak password.")
+            raise ChomikujError("Missing password.")
         return username, password
 
     def _start_download(self):
@@ -300,7 +300,7 @@ class ChomikujGui(tk.Tk):
             return
         urls = self._lines(self.download_text)
         if not urls:
-            messagebox.showerror("Error", "Podaj co najmniej jeden URL do pobrania.")
+            messagebox.showerror("Error", "Enter at least one URL to download.")
             return
         output = self.download_output_var.get().strip() or os.getcwd()
         threads = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
@@ -315,7 +315,7 @@ class ChomikujGui(tk.Tk):
             return
         paths = self._lines(self.upload_text)
         if not paths:
-            messagebox.showerror("Error", "Podaj co najmniej jeden plik lub folder do uploadu.")
+            messagebox.showerror("Error", "Enter at least one file or folder to upload.")
             return
         folder = self.upload_folder_var.get().strip()
         self._start_worker("Uploading...", self._upload_worker, username, password, paths, folder)
@@ -364,9 +364,9 @@ class ChomikujGui(tk.Tk):
             elif kind == "password_prompt":
                 _, prompt_kind, identifier, event, box = action
                 if prompt_kind == "account":
-                    prompt = f"Haslo do zasobow uzytkownika {identifier}:"
+                    prompt = f"Password for protected resources of user {identifier}:"
                 else:
-                    prompt = f"Haslo do folderu {identifier}:"
+                    prompt = f"Password for folder {identifier}:"
                 box["value"] = simpledialog.askstring("Password", prompt, show="*", parent=self) or ""
                 event.set()
         self.after(100, self._process_queue)

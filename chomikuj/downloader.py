@@ -30,9 +30,9 @@ class ChomikujDownloader(ChomikujBase):
             suffix = f": {code}"
             if message:
                 suffix += f" {message}"
-            raise ChomikujError(f"Blad files/download dla fileId={file_id}{suffix}")
+            raise ChomikujError(f"files/download error for fileId={file_id}{suffix}")
         if not payload.get("FileUrl"):
-            raise ChomikujError(f"Brak FileUrl dla fileId={file_id}")
+            raise ChomikujError(f"Missing FileUrl for fileId={file_id}")
         return payload["FileUrl"]
 
     def queue_file(self, file_name, url, rel_dir):
@@ -94,7 +94,7 @@ class ChomikujDownloader(ChomikujBase):
                 rel_dir = "" if self.flatten else "/".join([owner["name"], *resolved])
                 self.add_folder_recursive(owner, folder_id, rel_dir)
                 return
-        raise ChomikujError(f"Nie udalo sie rozpoznac URL-a przez nowe API: {url}")
+        raise ChomikujError(f"Could not resolve the URL through the new API: {url}")
 
     def wait(self):
         errors = []
@@ -104,4 +104,4 @@ class ChomikujDownloader(ChomikujBase):
                 errors.append(thread)
         if errors:
             first = errors[0]
-            raise ChomikujError(f"{len(errors)} pobran zakonczonych bledem. Pierwszy: {first.path}: {first.error}")
+            raise ChomikujError(f"{len(errors)} downloads failed. First: {first.path}: {first.error}")

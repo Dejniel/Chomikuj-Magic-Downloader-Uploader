@@ -26,13 +26,13 @@ class TerminalUi:
         return input("Login: ").strip()
 
     def login_password(self):
-        return getpass("Haslo: ")
+        return getpass("Password: ")
 
     def password(self, kind, identifier):
         if kind == "account":
-            prompt = f"Haslo do zasobow uzytkownika {identifier}: "
+            prompt = f"Password for protected resources of user {identifier}: "
         else:
-            prompt = f"Haslo do folderu {identifier}: "
+            prompt = f"Password for folder {identifier}: "
         return getpass(prompt)
 
     def error(self, message):
@@ -223,7 +223,7 @@ class TerminalUi:
         if not force and now - self.last_render < 0.08:
             return
         lines = [
-            f"Pobieranie: razem={self.download_total} ok={self.download_done} skip={self.download_skipped_count} err={self.download_failed_count}",
+            f"Downloads: total={self.download_total} ok={self.download_done} skip={self.download_skipped_count} err={self.download_failed_count}",
         ]
         lines.extend(self._download_lines())
         upload_lines = self._upload_lines()

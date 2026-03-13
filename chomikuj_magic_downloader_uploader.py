@@ -17,7 +17,7 @@ def main(argv):
     except ModuleNotFoundError as exc:
         if exc.name != "tkinter":
             raise
-        print("GUI wymaga modulu tkinter. Doinstaluj python3-tk albo uruchom program z parametrami CLI.", file=sys.stderr)
+        print("GUI requires the tkinter module. Install python3-tk or run the program with CLI arguments.", file=sys.stderr)
         sys.exit(1)
 
 

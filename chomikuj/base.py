@@ -33,20 +33,20 @@ class ChomikujBase:
     def account_password(self, owner_name):
         if owner_name not in self.account_passwords:
             if not self.password_provider:
-                raise ChomikujError(f"Potrzebne haslo do zasobow uzytkownika {owner_name}")
+                raise ChomikujError(f"Password required for protected resources of user {owner_name}")
             password = self.password_provider("account", owner_name)
             if not password:
-                raise ChomikujError(f"Nie podano hasla do zasobow uzytkownika {owner_name}")
+                raise ChomikujError(f"No password provided for protected resources of user {owner_name}")
             self.account_passwords[owner_name] = password
         return self.account_passwords[owner_name]
 
     def folder_password(self, folder_key):
         if folder_key not in self.folder_passwords:
             if not self.password_provider:
-                raise ChomikujError(f"Potrzebne haslo do folderu {folder_key}")
+                raise ChomikujError(f"Password required for folder {folder_key}")
             password = self.password_provider("folder", folder_key)
             if not password:
-                raise ChomikujError(f"Nie podano hasla do folderu {folder_key}")
+                raise ChomikujError(f"No password provided for folder {folder_key}")
             self.folder_passwords[folder_key] = password
         return self.folder_passwords[folder_key]
 
@@ -75,9 +75,9 @@ class ChomikujBase:
                 break
             page += 1
         if not matches:
-            raise ChomikujError(f"Nie znaleziono konta dla nazwy: {owner_name}")
+            raise ChomikujError(f"Account not found for name: {owner_name}")
         if len(matches) > 1:
-            raise ChomikujError(f"Niejednoznaczna nazwa konta: {owner_name}")
+            raise ChomikujError(f"Ambiguous account name: {owner_name}")
         return {"id": str(matches[0]["AccountId"]), "name": matches[0]["AccountName"]}
 
     def current_owner(self):
@@ -125,16 +125,16 @@ class ChomikujBase:
     def split_url(self, url):
         parsed = urlsplit(url)
         if parsed.scheme not in ("http", "https") or parsed.netloc not in ("chomikuj.pl", "www.chomikuj.pl"):
-            raise ChomikujError(f"Nieobslugiwany URL: {url}")
+            raise ChomikujError(f"Unsupported URL: {url}")
         parts = [self.clean(part) for part in parsed.path.split("/") if part]
         if not parts:
-            raise ChomikujError(f"Nieprawidlowy URL: {url}")
+            raise ChomikujError(f"Invalid URL: {url}")
         return parts[0], parts[1:]
 
     def find_named_folder(self, folders, segment):
         matches = [folder for folder in folders if self.same_name(folder.get("Name", ""), segment)]
         if len(matches) > 1:
-            raise ChomikujError(f"Niejednoznaczny folder: {segment}")
+            raise ChomikujError(f"Ambiguous folder: {segment}")
         return matches[0] if matches else None
 
     def resolve_folder_path(self, owner, segments):

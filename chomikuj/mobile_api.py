@@ -12,10 +12,10 @@ from .common import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY,
 
 
 class MobileApi:
-    """Klient `mobile.chomikuj.pl/api/v3`.
+    """Client for `mobile.chomikuj.pl/api/v3`.
 
-    Publiczne metody maja jawne parametry zamiast anonimowego `body`,
-    zeby bylo od razu widac jakich pol oczekuje endpoint.
+    Public methods use explicit parameters instead of an anonymous `body`,
+    so it is immediately clear which fields a given endpoint expects.
     """
 
     def __init__(self, username, password, debug=False, debug_hook=None):
@@ -71,12 +71,12 @@ class MobileApi:
                 break
             except requests.Timeout as exc:
                 if attempt >= attempts:
-                    raise ChomikujError(f"Timeout API dla {method} {path} po {attempts} probach: {exc}") from exc
+                    raise ChomikujError(f"API timeout for {method} {path} after {attempts} attempts: {exc}") from exc
                 if self.debug:
-                    self._debug(f"DEBUG timeout {method} {path_query}, proba {attempt}/{attempts}, ponawiam")
+                    self._debug(f"DEBUG timeout {method} {path_query}, attempt {attempt}/{attempts}, retrying")
                 time.sleep(RETRY_BACKOFF_SECONDS * attempt)
             except requests.RequestException as exc:
-                raise ChomikujError(f"Blad polaczenia z API dla {method} {path}: {exc}") from exc
+                raise ChomikujError(f"API connection error for {method} {path}: {exc}") from exc
         if self.debug:
             self._debug(f"DEBUG HTTP {response.status_code}")
             self._debug(response.text[:4000])
@@ -99,14 +99,14 @@ class MobileApi:
         try:
             return response.json()
         except ValueError as exc:
-            raise ChomikujError(f"Nieprawidlowy JSON z {path}: {exc}") from exc
+            raise ChomikujError(f"Invalid JSON from {path}: {exc}") from exc
 
     def activate_payment(self, purchase_info, signature):
         """POST /api/v3/payments/android/activate.
 
-        Parametry:
-        - `purchase_info`: surowy JSON zakupu z Google Play
-        - `signature`: podpis zakupu w base64 z Google Play
+        Parameters:
+        - `purchase_info`: raw purchase JSON from Google Play
+        - `signature`: purchase signature in base64 from Google Play
         """
         receipt = {
             "PurchaseInfo": self._urlsafe_b64(str(purchase_info).encode("utf-8")),
@@ -116,14 +116,14 @@ class MobileApi:
         return self._json("POST", "/api/v3/payments/android/activate", body=payload)
 
     def account_info(self):
-        """GET /api/v3/account/info. Podstawowe info o zalogowanym koncie."""
+        """GET /api/v3/account/info. Basic information about the logged-in account."""
         return self._json("GET", "/api/v3/account/info")
 
     def account_login(self):
         """POST /api/v3/account/login.
 
-        Parametry:
-        - korzysta z `username` i `password` przekazanych do konstruktora
+        Parameters:
+        - uses `username` and `password` passed to the constructor
         """
         payload = self._json(
             "POST",
@@ -135,15 +135,15 @@ class MobileApi:
         self.account_id = str(payload.get("AccountId") or "")
         self.account_name = payload.get("AccountName") or self.username
         if not self.api_key:
-            raise ChomikujError("Brak ApiKey po logowaniu")
+            raise ChomikujError("Missing ApiKey after login")
         return payload
 
     def account_password_read(self, account_id, password):
         """POST /api/v3/account/passwords/read.
 
-        Parametry:
-        - `account_id`: ID konta z haslem
-        - `password`: haslo do zasobow konta
+        Parameters:
+        - `account_id`: account ID protected by a password
+        - `password`: password for the account resources
         """
         return self._json(
             "POST",
@@ -154,9 +154,9 @@ class MobileApi:
     def account_password_recover(self, account_name, email):
         """POST /api/v3/account/password/recover.
 
-        Parametry:
-        - `account_name`: nazwa konta
-        - `email`: email przypisany do konta
+        Parameters:
+        - `account_name`: account name
+        - `email`: email assigned to the account
         """
         payload = {"AccountName": account_name, "Email": email}
         return self._json("POST", "/api/v3/account/password/recover", body=payload, use_api_key=False)
@@ -164,10 +164,10 @@ class MobileApi:
     def account_register(self, account_name, password, email):
         """POST /api/v3/account/register.
 
-        Parametry:
-        - `account_name`: nazwa nowego konta
-        - `password`: haslo nowego konta
-        - `email`: email nowego konta
+        Parameters:
+        - `account_name`: new account name
+        - `password`: new account password
+        - `email`: new account email
         """
         payload = {"AccountName": account_name, "Password": password, "Email": email}
         return self._json("POST", "/api/v3/account/register", body=payload, use_api_key=False)
@@ -175,9 +175,9 @@ class MobileApi:
     def account_search(self, account_name, page=1):
         """GET /api/v3/account/search.
 
-        Parametry:
-        - `account_name`: nazwa konta lub fragment nazwy
-        - `page`: numer strony wynikow
+        Parameters:
+        - `account_name`: account name or a fragment of it
+        - `page`: results page number
         """
         return self._json(
             "GET",
@@ -186,22 +186,22 @@ class MobileApi:
         )
 
     def account_transfer(self):
-        """GET /api/v3/account/transfer. Saldo i transfer konta."""
+        """GET /api/v3/account/transfer. Account balance and transfer information."""
         return self._json("GET", "/api/v3/account/transfer")
 
     def account_validate_email(self, email):
         """GET /api/v3/account/register/validate/email.
 
-        Parametry:
-        - `email`: email do sprawdzenia
+        Parameters:
+        - `email`: email to validate
         """
         return self._json("GET", "/api/v3/account/register/validate/email", query=[("email", email)], use_api_key=False)
 
     def account_validate_name(self, account_name):
         """GET /api/v3/account/register/validate/accountName.
 
-        Parametry:
-        - `account_name`: nazwa konta do sprawdzenia
+        Parameters:
+        - `account_name`: account name to validate
         """
         return self._json(
             "GET",
@@ -213,9 +213,9 @@ class MobileApi:
     def files_change_name(self, file_id, file_name):
         """POST /api/v3/files/changeName.
 
-        Parametry:
-        - `file_id`: ID pliku
-        - `file_name`: nowa nazwa pliku bez zmian w rozszerzeniu
+        Parameters:
+        - `file_id`: file ID
+        - `file_name`: new file name without changing the extension
         """
         payload = {"FileId": int(file_id), "FileName": file_name}
         return self._json("POST", "/api/v3/files/changeName", body=payload)
@@ -223,17 +223,17 @@ class MobileApi:
     def files_copies_get(self, query=None):
         """GET /api/v3/files/copies.
 
-        Parametry:
-        - `query`: opcjonalna lista par `(klucz, wartosc)` dla paginacji/filtrow
+        Parameters:
+        - `query`: optional list of `(key, value)` pairs for pagination or filters
         """
         return self._json("GET", "/api/v3/files/copies", query=query)
 
     def files_copies_post(self, owner_account_id, file_id):
         """POST /api/v3/files/copies.
 
-        Parametry:
-        - `owner_account_id`: ID wlasciciela oryginalnego pliku
-        - `file_id`: ID pliku do zachomikowania
+        Parameters:
+        - `owner_account_id`: owner ID of the original file
+        - `file_id`: ID of the file to save to your account
         """
         payload = {"OwnerAccountId": str(owner_account_id), "FileId": int(file_id)}
         return self._json("POST", "/api/v3/files/copies", body=payload)
@@ -241,9 +241,9 @@ class MobileApi:
     def files_delete(self, file_ids=None, folder_ids=None):
         """POST /api/v3/files/delete.
 
-        Parametry:
-        - `file_ids`: lista ID plikow do usuniecia
-        - `folder_ids`: lista ID folderow do usuniecia
+        Parameters:
+        - `file_ids`: list of file IDs to delete
+        - `folder_ids`: list of folder IDs to delete
         """
         payload = {
             "Files": [int(file_id) for file_id in (file_ids or [])],
@@ -254,19 +254,19 @@ class MobileApi:
     def files_download(self, file_id):
         """GET /api/v3/files/download.
 
-        Parametry:
-        - `file_id`: ID pliku do pobrania
+        Parameters:
+        - `file_id`: file ID to download
         """
         return self._json("GET", "/api/v3/files/download", query=[("fileId", str(file_id))])
 
     def files_move(self, source_folder_id, target_folder_id, file_ids=None, folder_ids=None):
         """POST /api/v3/files/move.
 
-        Parametry:
-        - `source_folder_id`: folder zrodlowy
-        - `target_folder_id`: folder docelowy
-        - `file_ids`: lista ID plikow do przeniesienia
-        - `folder_ids`: lista ID folderow do przeniesienia
+        Parameters:
+        - `source_folder_id`: source folder
+        - `target_folder_id`: target folder
+        - `file_ids`: list of file IDs to move
+        - `folder_ids`: list of folder IDs to move
         """
         payload = {
             "SourceFolderId": str(source_folder_id),
@@ -279,19 +279,19 @@ class MobileApi:
     def files_search(self, query):
         """GET /api/v3/files/search.
 
-        Parametry:
-        - `query`: lista par `(klucz, wartosc)` z filtrami wyszukiwarki
+        Parameters:
+        - `query`: list of `(key, value)` pairs with search filters
         """
         return self._json("GET", "/api/v3/files/search", query=query)
 
     def files_upload_partial(self, name, size, folder_id, hash_value):
         """POST /api/v3/files/upload/partialUpload.
 
-        Parametry:
-        - `name`: nazwa pliku
-        - `size`: rozmiar pliku w bajtach
-        - `folder_id`: folder docelowy
-        - `hash_value`: CRC/hash pliku
+        Parameters:
+        - `name`: file name
+        - `size`: file size in bytes
+        - `folder_id`: target folder
+        - `hash_value`: CRC/hash of the file
         """
         payload = {"Name": name, "Size": int(size), "FolderId": str(folder_id), "Hash": str(hash_value)}
         return self._json("POST", "/api/v3/files/upload/partialUpload", body=payload)
@@ -299,9 +299,9 @@ class MobileApi:
     def folders_change_name(self, folder_id, folder_name):
         """POST /api/v3/folders/changeName.
 
-        Parametry:
-        - `folder_id`: ID folderu
-        - `folder_name`: nowa nazwa folderu
+        Parameters:
+        - `folder_id`: folder ID
+        - `folder_name`: new folder name
         """
         payload = {"FolderId": str(folder_id), "FolderName": folder_name}
         return self._json("POST", "/api/v3/folders/changeName", body=payload)
@@ -309,9 +309,9 @@ class MobileApi:
     def folders_change_password(self, folder_id, password):
         """POST /api/v3/folders/changePassword.
 
-        Parametry:
-        - `folder_id`: ID folderu
-        - `password`: nowe haslo folderu
+        Parameters:
+        - `folder_id`: folder ID
+        - `password`: new folder password
         """
         payload = {"FolderId": str(folder_id), "Password": password}
         return self._json("POST", "/api/v3/folders/changePassword", body=payload)
@@ -319,9 +319,9 @@ class MobileApi:
     def folders_create(self, folder_name, parent_id):
         """POST /api/v3/folders/create.
 
-        Parametry:
-        - `folder_name`: nazwa nowego folderu
-        - `parent_id`: ID folderu rodzica
+        Parameters:
+        - `folder_name`: new folder name
+        - `parent_id`: parent folder ID
         """
         payload = {"FolderName": folder_name, "ParentId": str(parent_id)}
         return self._json("POST", "/api/v3/folders/create", body=payload)
@@ -329,9 +329,9 @@ class MobileApi:
     def folders_download_items(self, account_id, folder_id):
         """GET /api/v3/folders/download/items.
 
-        Parametry:
-        - `account_id`: ID wlasciciela folderu
-        - `folder_id`: ID folderu
+        Parameters:
+        - `account_id`: folder owner ID
+        - `folder_id`: folder ID
         """
         return self._json(
             "GET",
@@ -342,10 +342,10 @@ class MobileApi:
     def folders_get(self, account_id, folder_id, page=1):
         """GET /api/v3/folders.
 
-        Parametry:
-        - `account_id`: ID wlasciciela folderu
-        - `folder_id`: ID folderu lub `0` dla root
-        - `page`: numer strony listingu
+        Parameters:
+        - `account_id`: folder owner ID
+        - `folder_id`: folder ID or `0` for root
+        - `page`: listing page number
         """
         return self._json(
             "GET",
@@ -356,10 +356,10 @@ class MobileApi:
     def folders_password(self, account_id, folder_id, password):
         """POST /api/v3/folders/password.
 
-        Parametry:
-        - `account_id`: ID wlasciciela folderu
-        - `folder_id`: ID folderu
-        - `password`: haslo do otwarcia folderu
+        Parameters:
+        - `account_id`: folder owner ID
+        - `folder_id`: folder ID
+        - `password`: password required to open the folder
         """
         return self._json(
             "POST",
@@ -370,79 +370,79 @@ class MobileApi:
     def friends_add(self, account_id):
         """POST /api/v3/friends.
 
-        Parametry:
-        - `account_id`: ID konta do dodania do znajomych
+        Parameters:
+        - `account_id`: account ID to add as a friend
         """
         return self._json("POST", "/api/v3/friends", body={"id": str(account_id)})
 
     def friends_delete(self, friend_id):
         """DELETE /api/v3/friends/{id}.
 
-        Parametry:
-        - `friend_id`: ID znajomego
+        Parameters:
+        - `friend_id`: friend ID
         """
         return self._json("DELETE", f"/api/v3/friends/{self._quote(friend_id)}")
 
     def friends_get(self):
-        """GET /api/v3/friends. Lista znajomych."""
+        """GET /api/v3/friends. Friends list."""
         return self._json("GET", "/api/v3/friends")
 
     def instance_modules(self):
-        """GET /api/v3/instance/modules. Flagi modulow aplikacji."""
+        """GET /api/v3/instance/modules. Application module flags."""
         return self._json("GET", "/api/v3/instance/modules")
 
     def messages_block_sender(self, message_id):
         """POST /api/v3/messages/{id}/blockSender.
 
-        Parametry:
-        - `message_id`: ID wiadomosci od nadawcy do zablokowania
+        Parameters:
+        - `message_id`: message ID from the sender to block
         """
         return self._json("POST", f"/api/v3/messages/{self._quote(message_id)}/blockSender")
 
     def messages_delete(self, message_id):
         """DELETE /api/v3/messages/{id}.
 
-        Parametry:
-        - `message_id`: ID wiadomosci
+        Parameters:
+        - `message_id`: message ID
         """
         return self._json("DELETE", f"/api/v3/messages/{self._quote(message_id)}")
 
     def messages_get(self, message_id):
         """GET /api/v3/messages/{id}.
 
-        Parametry:
-        - `message_id`: ID wiadomosci
+        Parameters:
+        - `message_id`: message ID
         """
         return self._json("GET", f"/api/v3/messages/{self._quote(message_id)}")
 
     def messages_inbox(self, query=None):
         """GET /api/v3/messages/inbox.
 
-        Parametry:
-        - `query`: opcjonalna lista par `(klucz, wartosc)` dla paginacji
+        Parameters:
+        - `query`: optional list of `(key, value)` pairs for pagination
         """
         return self._json("GET", "/api/v3/messages/inbox", query=query)
 
     def messages_mark_all_read(self):
-        """POST /api/v3/messages/markAllAsRead. Oznaczenie wszystkich jako przeczytane."""
+        """POST /api/v3/messages/markAllAsRead. Mark all messages as read."""
         return self._json("POST", "/api/v3/messages/markAllAsRead")
 
     def messages_outbox(self, query=None):
         """GET /api/v3/messages/outbox.
 
-        Parametry:
-        - `query`: opcjonalna lista par `(klucz, wartosc)` dla paginacji
+        Parameters:
+        - `query`: optional list of `(key, value)` pairs for pagination
         """
         return self._json("GET", "/api/v3/messages/outbox", query=query)
 
     def messages_reply(self, message_id, subject, body_text, email=None):
         """POST /api/v3/messages/{id}/reply.
 
-        Parametry:
-        - `message_id`: ID wiadomosci
-        - `subject`: temat odpowiedzi
-        - `body_text`: tresc odpowiedzi
-        - `email`: opcjonalny email kontaktowy
+        Parameters:
+        - `message_id`: message ID
+        - `subject`: reply subject
+        - `body_text`: reply body
+        - `email`: optional contact email
         """
         payload = {"Subject": subject, "Body": body_text}
         if email:
@@ -452,44 +452,44 @@ class MobileApi:
     def messages_report_fraud(self, message_id):
         """POST /api/v3/messages/{id}/markAsFraud.
 
-        Parametry:
-        - `message_id`: ID wiadomosci
+        Parameters:
+        - `message_id`: message ID
         """
         return self._json("POST", f"/api/v3/messages/{self._quote(message_id)}/markAsFraud")
 
     def messages_report_spam(self, message_id):
         """POST /api/v3/messages/{id}/markAsSpam.
 
-        Parametry:
-        - `message_id`: ID wiadomosci
+        Parameters:
+        - `message_id`: message ID
         """
         return self._json("POST", f"/api/v3/messages/{self._quote(message_id)}/markAsSpam")
 
     def messages_send(self, account_to, subject, body_text):
         """POST /api/v3/messages/send.
 
-        Parametry:
-        - `account_to`: nazwa lub ID odbiorcy
-        - `subject`: temat
-        - `body_text`: tresc wiadomosci
+        Parameters:
+        - `account_to`: recipient name or ID
+        - `subject`: subject
+        - `body_text`: message body
         """
         payload = {"AccountTo": str(account_to), "Subject": subject, "Body": body_text}
         return self._json("POST", "/api/v3/messages/send", body=payload)
 
     def synchronization_state(self):
-        """GET /api/v3/synchronization/state. Stan backupu synchronizacji."""
+        """GET /api/v3/synchronization/state. Synchronization backup state."""
         return self._json("GET", "/api/v3/synchronization/state")
 
     def synchronization_upload(self, name, extension, size, hash_value, media_type, last_modified):
         """POST /api/v3/synchronization/upload.
 
-        Parametry:
-        - `name`: nazwa pliku
-        - `extension`: rozszerzenie bez kropki
-        - `size`: rozmiar pliku w bajtach
-        - `hash_value`: CRC/hash pliku
-        - `media_type`: typ mediow jako numer z aplikacji
-        - `last_modified`: timestamp modyfikacji pliku
+        Parameters:
+        - `name`: file name
+        - `extension`: extension without the dot
+        - `size`: file size in bytes
+        - `hash_value`: CRC/hash of the file
+        - `media_type`: media type number used by the app
+        - `last_modified`: file modification timestamp
         """
         payload = {
             "Name": name,
