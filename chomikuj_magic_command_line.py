@@ -4,15 +4,9 @@ import argparse
 import os
 import sys
 
-if __package__ in (None, ""):
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from chomikuj import ChomikujDownloader, ChomikujUploader
-    from chomikuj.common import DEBUG, ChomikujError, load_default_env
-    from chomikuj.terminal_ui import TerminalUi
-else:
-    from . import ChomikujDownloader, ChomikujUploader
-    from .common import DEBUG, ChomikujError, load_default_env
-    from .terminal_ui import TerminalUi
+from chomikuj import ChomikujDownloader, ChomikujUploader
+from chomikuj.common import DEBUG, ChomikujError, load_default_env
+from chomikuj.terminal_ui import TerminalUi
 
 
 def normalize_argv(argv):
@@ -25,7 +19,7 @@ def normalize_argv(argv):
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog="chomikuj_magic_downloader_uploader.py",
+        prog="chomikuj_magic_command_line.py",
         description="Download and upload files through the new Chomikuj mobile API.",
         epilog="Login and password are read from .env (USERNAME, PASSWORD) in the current directory, and if it is missing then from the script directory. If they are still missing the program will ask for them interactively.",
     )
