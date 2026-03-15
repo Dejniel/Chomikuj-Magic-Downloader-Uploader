@@ -254,6 +254,9 @@ if tk is not None:
         def _on_close(self):
             if self.busy and not messagebox.askyesno("Close", "An operation is still running. Close anyway?"):
                 return
+            if self.env_save_job is not None:
+                self.after_cancel(self.env_save_job)
+                self._save_credentials_to_env()
             self.destroy()
 
         def _set_busy(self, busy):

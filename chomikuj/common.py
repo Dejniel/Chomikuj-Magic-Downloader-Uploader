@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 
 BASE_URL = "https://mobile.chomikuj.pl"
 DEBUG = False
@@ -53,10 +54,14 @@ def load_env(path=".env"):
 
 
 def resolve_default_env_path(script_path):
-    env_path = ".env"
+    env_path = os.path.abspath(".env")
     if os.path.exists(env_path):
         return env_path
-    return os.path.join(os.path.dirname(os.path.abspath(script_path)), ".env")
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        base_dir = os.path.dirname(os.path.abspath(script_path))
+    return os.path.join(base_dir, ".env")
 
 
 def load_default_env(script_path):
