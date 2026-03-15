@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 # TODO: DO NOT READ. This code is waiting to be rewritten :P
-# One day I?ll refactor the whole GUI properly;
+# One day I'll refactor the whole GUI properly;
 # for now, the terrible single-file monolith stays.
 import os
 import queue
 import threading
 import tkinter as tk
+import sys
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from . import ChomikujDownloader, ChomikujUploader
-from .common import ChomikujError, load_default_env, resolve_default_env_path, save_env_values
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from chomikuj import ChomikujDownloader, ChomikujUploader
+    from chomikuj.common import ChomikujError, load_default_env, resolve_default_env_path, save_env_values
+else:
+    from . import ChomikujDownloader, ChomikujUploader
+    from .common import ChomikujError, load_default_env, resolve_default_env_path, save_env_values
 
 
 class ChomikujGui(tk.Tk):
@@ -444,3 +450,17 @@ class ChomikujGui(tk.Tk):
 def run_gui(script_path):
     app = ChomikujGui(script_path)
     app.mainloop()
+
+
+def main():
+    try:
+        run_gui(__file__)
+    except ModuleNotFoundError as exc:
+        if exc.name != "tkinter":
+            raise
+        print("GUI requires the tkinter module. Install python3-tk or run the command-line build instead.", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

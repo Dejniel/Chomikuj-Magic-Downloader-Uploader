@@ -4,9 +4,15 @@ import argparse
 import os
 import sys
 
-from . import ChomikujDownloader, ChomikujUploader
-from .common import DEBUG, ChomikujError, load_default_env
-from .terminal_ui import TerminalUi
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from chomikuj import ChomikujDownloader, ChomikujUploader
+    from chomikuj.common import DEBUG, ChomikujError, load_default_env
+    from chomikuj.terminal_ui import TerminalUi
+else:
+    from . import ChomikujDownloader, ChomikujUploader
+    from .common import DEBUG, ChomikujError, load_default_env
+    from .terminal_ui import TerminalUi
 
 
 def normalize_argv(argv):
@@ -83,3 +89,11 @@ def run_cli(argv, script_path):
     if error:
         ui.error(error)
         sys.exit(1)
+
+
+def main(argv=None):
+    run_cli(list(sys.argv[1:] if argv is None else argv), __file__)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,99 @@
+name: Release Executables
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform_name: Linux
+          - os: windows-latest
+            platform_name: Windows
+          - os: macos-latest
+            platform_name: macOS
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pyinstaller>=6.0,<7"
+
+      - name: Verify tkinter for GUI build
+        shell: bash
+        run: python -c "import tkinter"
+
+      - name: Resolve artifact metadata
+        id: meta
+        shell: bash
+        run: |
+          arch="$RUNNER_ARCH"
+          case "$arch" in
+            X64) arch="x86_64" ;;
+            ARM64) arch="aarch64" ;;
+            *) arch="$(echo "$arch" | tr '[:upper:]' '[:lower:]')" ;;
+          esac
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
+
+      - name: Build command-line executable
+        shell: bash
+        run: |
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --paths . \
+            --distpath dist \
+            --workpath build/command-line \
+            --specpath build/spec \
+            --name "Chomikuj-Magic-Command-Line-${{ matrix.platform_name }}-${{ steps.meta.outputs.arch }}" \
+            chomikuj/cli.py
+
+      - name: Build graphical executable
+        shell: bash
+        run: |
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --windowed \
+            --paths . \
+            --distpath dist \
+            --workpath build/graphical \
+            --specpath build/spec \
+            --name "Chomikuj-Magic-Graphical-${{ matrix.platform_name }}-${{ steps.meta.outputs.arch }}" \
+            chomikuj/gui.py
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: executables-${{ matrix.platform_name }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
