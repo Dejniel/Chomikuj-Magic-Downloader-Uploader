@@ -10,8 +10,20 @@ permissions:
   contents: write
 
 jobs:
+  create_release:
+    name: Create Release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
   build:
     name: Build ${{ matrix.platform_name }}
+    needs: create_release
+    if: always() && (needs.create_release.result == 'success' || needs.create_release.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -84,9 +96,8 @@ jobs:
             --name "Chomikuj-Magic-GUI-${{ matrix.platform_name }}-${{ steps.meta.outputs.arch }}" \
             chomikuj/gui.py
 
-      - name: Publish GitHub release assets
+      - name: Upload files to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
