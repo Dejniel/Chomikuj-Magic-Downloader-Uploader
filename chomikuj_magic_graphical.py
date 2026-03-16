@@ -75,22 +75,23 @@ if tk is not None:
             style = ttk.Style(self)
             style.configure("Activity.Treeview", rowheight=26)
 
-            self.account_frame = ttk.LabelFrame(self)
-            self.account_frame.pack(fill="x", padx=10, pady=10)
-            self.account_frame.columnconfigure(1, weight=1)
+            self.header_frame = ttk.Frame(self)
+            self.header_frame.pack(fill="x", padx=10, pady=10)
+            self.header_frame.columnconfigure(1, weight=1)
+            self.header_frame.columnconfigure(3, weight=1)
 
-            self.username_label = ttk.Label(self.account_frame)
+            self.username_label = ttk.Label(self.header_frame)
             self.username_label.grid(row=0, column=0, sticky="w", **padding)
-            self.username_entry = ttk.Entry(self.account_frame, textvariable=self.username_var)
+            self.username_entry = ttk.Entry(self.header_frame, textvariable=self.username_var)
             self.username_entry.grid(row=0, column=1, sticky="ew", **padding)
 
-            self.language_button = ttk.Button(self.account_frame, text="PL/EN", command=self._toggle_language)
-            self.language_button.grid(row=0, column=2, sticky="e", padx=(12, 10), pady=6)
+            self.password_label = ttk.Label(self.header_frame)
+            self.password_label.grid(row=0, column=2, sticky="w", **padding)
+            self.password_entry = ttk.Entry(self.header_frame, textvariable=self.password_var, show="*")
+            self.password_entry.grid(row=0, column=3, sticky="ew", **padding)
 
-            self.password_label = ttk.Label(self.account_frame)
-            self.password_label.grid(row=1, column=0, sticky="w", **padding)
-            self.password_entry = ttk.Entry(self.account_frame, textvariable=self.password_var, show="*")
-            self.password_entry.grid(row=1, column=1, sticky="ew", **padding)
+            self.language_button = ttk.Button(self.header_frame, text="PL/EN", command=self._toggle_language)
+            self.language_button.grid(row=0, column=4, sticky="e", padx=(12, 10), pady=6)
 
             self.notebook = ttk.Notebook(self)
             self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -240,7 +241,6 @@ if tk is not None:
 
         def _apply_texts(self):
             self.title(self.i18n("app.title"))
-            self.account_frame.configure(text=self.i18n("gui.account"))
             self.username_label.configure(text=self.i18n("gui.username"))
             self.password_label.configure(text=self.i18n("gui.password"))
             self.notebook.tab(self.download_tab, text=self.i18n("kind.download"))
