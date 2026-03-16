@@ -4,7 +4,7 @@ Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloade
 
 Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
 
-Aby pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest), a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem
+Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem
 
 ![Chomikuj Magic Downloader Uploader LOGO Hamster](chomikuj_magic.png)
 
