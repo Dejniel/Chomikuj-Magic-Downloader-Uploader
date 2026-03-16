@@ -67,20 +67,23 @@ class ChomikujBase:
 
     def _search_owner(self, owner_name):
         page = 1
-        matches = []
+        matches = {}
         while True:
             payload = self.api.account_search(owner_name, page)
             for result in payload.get("Results", []):
                 if self.same_name(result.get("AccountName", ""), owner_name):
-                    matches.append(result)
-            if matches or not payload.get("IsNextPageAvailable"):
+                    account_id = str(result.get("AccountId") or "")
+                    key = account_id or self.clean(result.get("AccountName", "")).casefold()
+                    matches.setdefault(key, result)
+            if not payload.get("IsNextPageAvailable"):
                 break
             page += 1
         if not matches:
             raise ChomikujError(self.i18n("error.account_not_found", owner_name=owner_name))
-        if len(matches) > 1:
+        unique_matches = list(matches.values())
+        if len(unique_matches) > 1:
             raise ChomikujError(self.i18n("error.account_ambiguous", owner_name=owner_name))
-        return {"id": str(matches[0]["AccountId"]), "name": matches[0]["AccountName"]}
+        return {"id": str(unique_matches[0]["AccountId"]), "name": unique_matches[0]["AccountName"]}
 
     def current_owner(self):
         if "__current_owner__" in self.owner_cache:
