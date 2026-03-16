@@ -39,22 +39,26 @@ if tk is not None:
             self.busy = False
             self.rows = {}
             self.env_save_job = None
-            self.max_download_threads = max(1, (os.cpu_count() or 1) * 2)
+            self.max_worker_threads = max(1, (os.cpu_count() or 1) * 2)
 
             self.username_var = tk.StringVar(value=env.get("USERNAME", ""))
             self.password_var = tk.StringVar(value=env.get("PASSWORD", ""))
             self.download_output_var = tk.StringVar(value=os.getcwd())
-            self.download_threads_var = tk.IntVar(value=min(5, self.max_download_threads))
+            self.download_threads_var = tk.IntVar(value=min(5, self.max_worker_threads))
             self.download_threads_label_var = tk.StringVar()
+            self.upload_threads_var = tk.IntVar(value=min(2, self.max_worker_threads))
+            self.upload_threads_label_var = tk.StringVar()
             self.download_flatten_var = tk.BooleanVar(value=False)
             self.upload_folder_var = tk.StringVar(value="")
             self.status_var = tk.StringVar(value="Idle")
 
             self._build_ui()
-            self._refresh_threads_label()
+            self._refresh_download_threads_label()
+            self._refresh_upload_threads_label()
             self.username_var.trace_add("write", self._schedule_env_save)
             self.password_var.trace_add("write", self._schedule_env_save)
-            self.download_threads_var.trace_add("write", self._refresh_threads_label)
+            self.download_threads_var.trace_add("write", self._refresh_download_threads_label)
+            self.upload_threads_var.trace_add("write", self._refresh_upload_threads_label)
             self.protocol("WM_DELETE_WINDOW", self._on_close)
             self.after(100, self._process_queue)
 
@@ -129,7 +133,7 @@ if tk is not None:
             self.threads_scale = tk.Scale(
                 config,
                 from_=1,
-                to=self.max_download_threads,
+                to=self.max_worker_threads,
                 orient="horizontal",
                 variable=self.download_threads_var,
                 resolution=1,
@@ -176,6 +180,20 @@ if tk is not None:
             self.remote_folder_entry = ttk.Entry(config, textvariable=self.upload_folder_var)
             self.remote_folder_entry.grid(row=0, column=1, sticky="ew", **padding)
 
+            ttk.Label(config, text="Workers:").grid(row=1, column=0, sticky="w", **padding)
+            self.upload_threads_scale = tk.Scale(
+                config,
+                from_=1,
+                to=self.max_worker_threads,
+                orient="horizontal",
+                variable=self.upload_threads_var,
+                resolution=1,
+                showvalue=False,
+                highlightthickness=0,
+            )
+            self.upload_threads_scale.grid(row=1, column=1, sticky="ew", **padding)
+            ttk.Label(config, textvariable=self.upload_threads_label_var, width=10).grid(row=1, column=2, sticky="w", **padding)
+
             paths_frame = ttk.LabelFrame(parent, text="Local files or folders (one per line)")
             paths_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
             paths_frame.columnconfigure(0, weight=1)
@@ -215,12 +233,19 @@ if tk is not None:
             except OSError as exc:
                 self.status_var.set(f"Failed to save .env: {exc}")
 
-        def _refresh_threads_label(self, *_):
-            value = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
+        def _refresh_download_threads_label(self, *_):
+            value = max(1, min(self.max_worker_threads, int(self.download_threads_var.get() or 1)))
             if value != self.download_threads_var.get():
                 self.download_threads_var.set(value)
                 return
-            self.download_threads_label_var.set(f"{value} / {self.max_download_threads}")
+            self.download_threads_label_var.set(f"{value} / {self.max_worker_threads}")
+
+        def _refresh_upload_threads_label(self, *_):
+            value = max(1, min(self.max_worker_threads, int(self.upload_threads_var.get() or 1)))
+            if value != self.upload_threads_var.get():
+                self.upload_threads_var.set(value)
+                return
+            self.upload_threads_label_var.set(f"{value} / {self.max_worker_threads}")
 
         def _browse_output(self):
             path = filedialog.askdirectory(initialdir=self.download_output_var.get() or os.getcwd())
@@ -272,6 +297,7 @@ if tk is not None:
                 self.download_button,
                 self.download_clear_button,
                 self.remote_folder_entry,
+                self.upload_threads_scale,
                 self.add_files_button,
                 self.add_folder_button,
                 self.upload_button,
@@ -321,7 +347,7 @@ if tk is not None:
                 messagebox.showerror("Error", "Enter at least one URL to download.")
                 return
             output = self.download_output_var.get().strip() or os.getcwd()
-            threads = max(1, min(self.max_download_threads, int(self.download_threads_var.get() or 1)))
+            threads = max(1, min(self.max_worker_threads, int(self.download_threads_var.get() or 1)))
             flatten = bool(self.download_flatten_var.get())
             self._start_worker("Downloading...", self._download_worker, username, password, urls, output, threads, flatten)
 
@@ -336,7 +362,8 @@ if tk is not None:
                 messagebox.showerror("Error", "Enter at least one file or folder to upload.")
                 return
             folder = self.upload_folder_var.get().strip()
-            self._start_worker("Uploading...", self._upload_worker, username, password, paths, folder)
+            threads = max(1, min(self.max_worker_threads, int(self.upload_threads_var.get() or 1)))
+            self._start_worker("Uploading...", self._upload_worker, username, password, paths, folder, threads)
 
         def _download_worker(self, username, password, urls, output, threads, flatten):
             os.makedirs(output, exist_ok=True)
@@ -353,10 +380,11 @@ if tk is not None:
                 downloader.handle_url(url)
             downloader.wait()
 
-        def _upload_worker(self, username, password, paths, folder):
+        def _upload_worker(self, username, password, paths, folder, threads):
             uploader = ChomikujUploader(
                 username,
                 password,
+                max_threads=threads,
                 password_provider=self.password,
                 status_sink=self,
             )

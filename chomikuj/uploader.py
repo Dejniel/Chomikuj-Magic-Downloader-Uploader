@@ -1,41 +1,27 @@
 #!/usr/bin/env python3
 
 import os
-import re
-import time
-import zlib
-
-import requests
+import threading
 
 from .base import ChomikujBase
-from .common import TIMEOUT, USER_AGENT, ChomikujError
-
-CHUNK_SIZE = 524288
+from .common import ChomikujError
+from .upload_item import UploadItem
 
 
 class ChomikujUploader(ChomikujBase):
-    def __init__(self, username, password, debug=False, password_provider=None, status_sink=None, debug_hook=None):
+    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None):
         super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook)
+        self.max_threads = max(1, int(max_threads or 1))
         self.status_sink = status_sink
+        self.semaphore = threading.Semaphore(self.max_threads)
+        self.threads = []
+        self.pre_errors = []
 
     def _emit(self, event, *args):
         if self.status_sink:
             handler = getattr(self.status_sink, event, None)
             if handler:
                 handler(*args)
-
-    def _crc32(self, path):
-        crc = 0
-        with open(path, "rb") as handle:
-            while True:
-                chunk = handle.read(65536)
-                if not chunk:
-                    break
-                crc = zlib.crc32(chunk, crc)
-        return format(crc & 0xFFFFFFFF, "x")
-
-    def _escape_file_name(self, name):
-        return re.sub(r'[\?\:\<\>\/\*"\\\\]+', "_", name)
 
     def _split_remote_folder(self, folder):
         if not folder:
@@ -85,99 +71,78 @@ class ChomikujUploader(ChomikujBase):
         folder_id, resolved = self.ensure_remote_folder_path(owner, segments)
         return owner, folder_id, resolved
 
-    def _upload_chunk(self, path, name, upload_url, offset, size):
-        boundary = f"***{int(time.time() * 1000)}***"
-        with open(path, "rb") as handle:
-            handle.seek(offset)
-            chunk = handle.read(min(CHUNK_SIZE, max(0, size - offset)))
-        body = b"".join(
-            [
-                f"--{boundary}\r\n".encode("utf-8"),
-                f'Content-Disposition: form-data; name="files[]";filename="{self._escape_file_name(name)}"\r\n'.encode("utf-8"),
-                b"\r\n",
-                chunk,
-                b"\r\n",
-                f"--{boundary}--\r\n".encode("utf-8"),
-            ]
-        )
-        next_offset = offset + len(chunk)
-        headers = {
-            "User-Agent": USER_AGENT,
-            "Connection": "Keep-Alive",
-            "ENCTYPE": "multipart/form-data",
-            "Content-Type": f"multipart/form-data;boundary={boundary}",
-            "Content-Length": str(len(body)),
-            "File-Range": f"{offset}-{next_offset}",
-        }
-        try:
-            response = requests.post(upload_url, headers=headers, data=body, timeout=TIMEOUT)
-        except requests.RequestException as exc:
-            raise ChomikujError(f"Connection error during upload of {path}: {exc}") from exc
-        return response.status_code, next_offset
-
-    def _upload_file_to_folder(self, path, owner, folder_id, resolved):
+    def _record_pre_error(self, path, error, target):
         local_path = os.path.abspath(path)
-        if not os.path.isfile(local_path):
-            raise ChomikujError(f"This is not a file for upload: {path}")
-        name = os.path.basename(local_path)
-        size = os.path.getsize(local_path)
-        crc = self._crc32(local_path)
-        target = "/".join(resolved) if resolved else "/"
-        self._emit("upload_started", local_path, target, size)
-        payload = self.api.files_upload_partial(name, size, folder_id, crc)
-        if payload.get("UploadCompleted"):
-            self._emit("upload_finished", local_path, target, size)
-            return
-        upload_url = payload.get("Url")
-        if not upload_url:
-            self._emit("upload_failed", local_path, ChomikujError(f"Missing URL after partialUpload for file: {path}"), target)
-            raise ChomikujError(f"Missing URL after partialUpload for file: {path}")
-        uploaded = int(payload.get("Chunk") or 0)
-        self._emit("upload_progress", local_path, uploaded, size, target)
-        while True:
-            status, uploaded = self._upload_chunk(local_path, name, upload_url, uploaded, size)
-            self._emit("upload_progress", local_path, uploaded, size, target)
-            if status == 200:
-                self._emit("upload_finished", local_path, target, size)
-                return
-            if status == 206:
-                continue
-            if status == 408:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload timeout for file: {path}"), target)
-                raise ChomikujError(f"Upload timeout for file: {path}")
-            if status == 409:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload conflict for file: {path}"), target)
-                raise ChomikujError(f"Upload conflict for file: {path}")
-            if status == 410:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload session expired for file: {path}"), target)
-                raise ChomikujError(f"Upload session expired for file: {path}")
-            if status == 500:
-                self._emit("upload_failed", local_path, ChomikujError(f"Upload internal error for file: {path}"), target)
-                raise ChomikujError(f"Upload internal error for file: {path}")
-            self._emit("upload_failed", local_path, ChomikujError(f"Unknown upload error {status} for {path} to {target}"), target)
-            raise ChomikujError(f"Unknown upload error {status} for {path} to {target}")
+        exc = error if isinstance(error, Exception) else ChomikujError(str(error))
+        self.pre_errors.append((local_path, exc))
+        self._emit("upload_failed", local_path, exc, target)
 
-    def _upload_directory_to_folder(self, path, owner, folder_id, resolved):
-        local_dir = os.path.abspath(path)
+    def _queue_file(self, local_path, folder_id, target):
+        item = UploadItem(
+            self.semaphore,
+            self.api.username,
+            self.api.password,
+            self.api.api_key,
+            self.api.account_id,
+            self.api.account_name,
+            local_path,
+            folder_id,
+            target,
+            status_sink=self.status_sink,
+            debug=self.api.debug,
+            debug_hook=self.api.debug_hook,
+        )
+        self.threads.append(item)
+        item.start()
+
+    def _collect_directory_tasks(self, local_dir, owner, folder_id, resolved, tasks):
         if not os.path.isdir(local_dir):
-            raise ChomikujError(f"This is not a directory for upload: {path}")
+            raise ChomikujError(f"This is not a directory for upload: {local_dir}")
         local_name = os.path.basename(os.path.normpath(local_dir))
         remote_folder_id, remote_resolved = self.ensure_remote_folder_path(owner, resolved + [local_name])
         entries = sorted(os.listdir(local_dir), key=str.casefold)
         for entry in entries:
             local_entry = os.path.join(local_dir, entry)
             if os.path.isfile(local_entry):
-                self._upload_file_to_folder(local_entry, owner, remote_folder_id, remote_resolved)
+                tasks.append((os.path.abspath(local_entry), str(remote_folder_id), "/".join(remote_resolved) if remote_resolved else "/"))
             elif os.path.isdir(local_entry):
-                self._upload_directory_to_folder(local_entry, owner, remote_folder_id, remote_resolved)
+                try:
+                    self._collect_directory_tasks(local_entry, owner, remote_folder_id, remote_resolved, tasks)
+                except ChomikujError as exc:
+                    self._record_pre_error(local_entry, exc, "/".join(remote_resolved) if remote_resolved else "/")
 
-    def upload_files(self, paths, folder=None):
+    def _collect_tasks(self, paths, folder):
         owner, folder_id, resolved = self.resolve_target_folder(folder)
+        tasks = []
         for path in paths:
             local_path = os.path.abspath(path)
+            target = "/".join(resolved) if resolved else "/"
             if os.path.isfile(local_path):
-                self._upload_file_to_folder(local_path, owner, folder_id, resolved)
-            elif os.path.isdir(local_path):
-                self._upload_directory_to_folder(local_path, owner, folder_id, resolved)
-            else:
-                raise ChomikujError(f"Unsupported upload path: {path}")
+                tasks.append((local_path, str(folder_id), target))
+                continue
+            if os.path.isdir(local_path):
+                try:
+                    self._collect_directory_tasks(local_path, owner, folder_id, resolved, tasks)
+                except ChomikujError as exc:
+                    self._record_pre_error(local_path, exc, target)
+                continue
+            self._record_pre_error(local_path, ChomikujError(f"Unsupported upload path: {path}"), target)
+        return tasks
+
+    def upload_files(self, paths, folder=None):
+        self.threads = []
+        self.pre_errors = []
+        tasks = self._collect_tasks(paths, folder)
+        for local_path, folder_id, target in tasks:
+            self._queue_file(local_path, folder_id, target)
+        self.wait()
+
+    def wait(self):
+        errors = list(self.pre_errors)
+        for thread in self.threads:
+            thread.join()
+            if thread.error:
+                errors.append((thread.local_path, thread.error))
+        if errors:
+            first_path, first_error = errors[0]
+            raise ChomikujError(f"{len(errors)} uploads failed. First: {first_path}: {first_error}")

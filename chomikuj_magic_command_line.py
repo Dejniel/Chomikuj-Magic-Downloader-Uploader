@@ -17,6 +17,10 @@ def normalize_argv(argv):
     return ["download"] + argv
 
 
+def normalize_threads(value):
+    return max(1, int(value or 1))
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="chomikuj_magic_command_line.py",
@@ -35,6 +39,7 @@ def build_parser():
     upload = commands.add_parser("upload", help="Upload local files or folders to your account.")
     upload.add_argument("paths", nargs="+", help="Local files or folders to upload. Directories are uploaded recursively.")
     upload.add_argument("--folder", default="", help="Remote folder path on your account or a folder URL. Default: root directory.")
+    upload.add_argument("-t", "--threads", type=int, default=2, help="Number of concurrent uploads. Default: 2.")
     upload.add_argument("-v", "--debug", action="store_true", help="Print API request debug logs.")
     return parser
 
@@ -42,7 +47,11 @@ def build_parser():
 def run_cli(argv, script_path):
     parser = build_parser()
     args = parser.parse_args(normalize_argv(argv))
-    ui = TerminalUi(download_slots=getattr(args, "threads", 0), live=not getattr(args, "debug", False))
+    if args.command == "download":
+        args.threads = normalize_threads(args.threads)
+    elif args.command == "upload":
+        args.threads = normalize_threads(args.threads)
+    ui = TerminalUi(download_slots=args.threads if args.command == "download" else 0, live=not getattr(args, "debug", False))
     env = load_default_env(script_path)
     username = env.get("USERNAME", "") or ui.login()
     password = env.get("PASSWORD", "") or ui.login_password()
@@ -68,7 +77,8 @@ def run_cli(argv, script_path):
             uploader = ChomikujUploader(
                 username,
                 password,
-                args.debug or DEBUG,
+                max_threads=args.threads,
+                debug=args.debug or DEBUG,
                 password_provider=ui.password,
                 status_sink=ui,
                 debug_hook=ui.debug,

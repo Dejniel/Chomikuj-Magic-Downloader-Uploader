@@ -8,7 +8,7 @@ from urllib.parse import quote, urlencode
 
 import requests
 
-from .common import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError
+from .common import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError, is_timeout_error
 
 
 class MobileApi:
@@ -69,13 +69,14 @@ class MobileApi:
                     timeout=TIMEOUT,
                 )
                 break
-            except requests.Timeout as exc:
-                if attempt >= attempts:
-                    raise ChomikujError(f"API timeout for {method} {path} after {attempts} attempts: {exc}") from exc
-                if self.debug:
-                    self._debug(f"DEBUG timeout {method} {path_query}, attempt {attempt}/{attempts}, retrying")
-                time.sleep(RETRY_BACKOFF_SECONDS * attempt)
             except requests.RequestException as exc:
+                if is_timeout_error(exc):
+                    if attempt >= attempts:
+                        raise ChomikujError(f"API timeout for {method} {path} after {attempts} attempts: {exc}") from exc
+                    if self.debug:
+                        self._debug(f"DEBUG timeout {method} {path_query}, attempt {attempt}/{attempts}, retrying")
+                    time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+                    continue
                 raise ChomikujError(f"API connection error for {method} {path}: {exc}") from exc
         if self.debug:
             self._debug(f"DEBUG HTTP {response.status_code}")
@@ -343,14 +344,17 @@ class MobileApi:
         """GET /api/v3/folders.
 
         Parameters:
-        - `account_id`: folder owner ID
+        - `account_id`: folder owner ID; omit or pass empty for the logged-in account
         - `folder_id`: folder ID or `0` for root
         - `page`: listing page number
         """
+        query = [("Parent", str(folder_id)), ("page", str(page))]
+        if account_id:
+            query.insert(0, ("AccountId", str(account_id)))
         return self._json(
             "GET",
             "/api/v3/folders",
-            query=[("AccountId", str(account_id)), ("Parent", str(folder_id)), ("page", str(page))],
+            query=query,
         )
 
     def folders_password(self, account_id, folder_id, password):

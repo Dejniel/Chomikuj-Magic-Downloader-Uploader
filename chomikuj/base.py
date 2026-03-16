@@ -100,9 +100,12 @@ class ChomikujBase:
             return self.folder_cache[key]
         result = {"Folders": [], "Files": [], "Owner": None, "ParentId": None, "ParentName": None}
         page = 1
+        account_id = owner["id"]
+        if self.api.account_id and str(owner["id"]) == str(self.api.account_id):
+            account_id = None
         while True:
             try:
-                payload = self.api.folders_get(owner["id"], folder_id, page)
+                payload = self.api.folders_get(account_id, folder_id, page)
             except ApiRequestError as exc:
                 if exc.status == 401 and exc.code == 2:
                     self.api.account_password_read(owner["id"], self.account_password(owner["name"]))

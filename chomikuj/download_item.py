@@ -6,7 +6,7 @@ import time
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError
+from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
 
 
 class DownloadItem(threading.Thread):
@@ -101,7 +101,7 @@ class DownloadItem(threading.Thread):
                         self._emit("download_finished", self.path, downloaded, total_size)
                         return
                     except requests.RequestException as exc:
-                        is_timeout = isinstance(exc, requests.Timeout) or "timed out" in str(exc).lower()
+                        is_timeout = is_timeout_error(exc)
                         if is_timeout and attempt >= RETRY_ATTEMPTS:
                             raise ChomikujError(f"Download timeout for {self.path} after {RETRY_ATTEMPTS} attempts: {exc}") from exc
                         if not is_timeout:

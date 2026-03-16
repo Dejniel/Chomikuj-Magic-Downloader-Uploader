@@ -39,6 +39,19 @@ class ApiRequestError(ChomikujError):
         self.body = body
 
 
+def is_timeout_error(exc):
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        class_name = current.__class__.__name__.lower()
+        message = str(current).lower()
+        if "timeout" in class_name or "timed out" in message or "read timeout" in message:
+            return True
+        current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+    return False
+
+
 def load_env(path=".env"):
     env = {}
     if not os.path.exists(path):
