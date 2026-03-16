@@ -4,6 +4,8 @@ Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloade
 
 Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
 
+Aby pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest), a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem
+
 ![Chomikuj Magic Downloader Uploader LOGO Hamster](chomikuj_magic.png)
 
 # We need you!
@@ -37,7 +39,7 @@ or you can build the project yourself.
 - (optional, GUI only) if `tkinter` is missing, install it from your system packages:
   Linux (Ubuntu/Debian): `sudo apt install python3-tk`
   macOS (Homebrew Python): `brew install python-tk`
-  
+
 # Quick start
 
 If you use release binaries, run the executable directly without `python3`.
