@@ -5,17 +5,18 @@ import re
 import threading
 
 from .base import ChomikujBase
-from .common import ChomikujError, FileUnavailableError
+from .common import ChomikujError, FileUnavailableError, encode_local_component
 from .download_item import DownloadItem
 
 
 class ChomikujDownloader(ChomikujBase):
-    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, i18n=None):
+    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, keep_original_names=False, i18n=None):
         super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n)
         self.max_threads = int(max_threads)
         self.output_dir = output_dir
         self.status_sink = status_sink
         self.flatten = bool(flatten)
+        self.keep_original_names = bool(keep_original_names)
         self.semaphore = threading.Semaphore(self.max_threads)
         self.threads = []
         self.queued = set()
@@ -36,11 +37,7 @@ class ChomikujDownloader(ChomikujBase):
         return payload["FileUrl"]
 
     def queue_file(self, file_name, url, rel_dir):
-        if rel_dir:
-            path = os.path.join(self.output_dir, rel_dir.strip("/"), file_name)
-        else:
-            path = os.path.join(self.output_dir, file_name)
-        path = os.path.normpath(path)
+        path = self._local_path(file_name, rel_dir)
         if path in self.queued:
             return
         self.queued.add(path)
@@ -53,6 +50,20 @@ class ChomikujDownloader(ChomikujBase):
     def queue_file_by_id(self, file_id, file_name, rel_dir):
         self.queue_file(file_name, self.download_url(file_id), rel_dir)
 
+    def _local_path(self, file_name, rel_dir):
+        parts = [self.output_dir]
+        if rel_dir:
+            segments = [segment for segment in rel_dir.strip("/").split("/") if segment]
+            if not self.keep_original_names:
+                segments = [encode_local_component(segment) for segment in segments]
+            if segments:
+                parts.append(os.path.join(*segments))
+        if self.keep_original_names:
+            parts.append(file_name)
+        else:
+            parts.append(encode_local_component(file_name, allow_extension=True))
+        return os.path.normpath(os.path.join(*parts))
+
     def add_folder_recursive(self, owner, folder_id, rel_dir):
         listing = self.list_folder(owner, folder_id)
         for entry in listing["Files"]:
@@ -60,7 +71,7 @@ class ChomikujDownloader(ChomikujBase):
             try:
                 self.queue_file_by_id(entry["FileId"], file_name, rel_dir)
             except FileUnavailableError:
-                skipped_path = os.path.normpath(os.path.join(self.output_dir, rel_dir.strip("/"), file_name) if rel_dir else os.path.join(self.output_dir, file_name))
+                skipped_path = self._local_path(file_name, rel_dir)
                 if self.status_sink:
                     self.status_sink.download_skipped(skipped_path)
                 continue

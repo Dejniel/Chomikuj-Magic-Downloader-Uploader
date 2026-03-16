@@ -49,6 +49,7 @@ if tk is not None:
             self.upload_threads_var = tk.IntVar(value=min(2, self.max_worker_threads))
             self.upload_threads_label_var = tk.StringVar()
             self.download_flatten_var = tk.BooleanVar(value=False)
+            self.download_keep_original_names_var = tk.BooleanVar(value=False)
             self.upload_folder_var = tk.StringVar(value="")
             self.status_var = tk.StringVar()
 
@@ -160,8 +161,14 @@ if tk is not None:
             self.download_threads_label = ttk.Label(config, textvariable=self.download_threads_label_var, width=10)
             self.download_threads_label.grid(row=1, column=2, sticky="w", **padding)
 
-            self.flatten_check = ttk.Checkbutton(config, variable=self.download_flatten_var)
-            self.flatten_check.grid(row=2, column=1, sticky="w", **padding)
+            self.download_flags = ttk.Frame(config)
+            self.download_flags.grid(row=2, column=1, columnspan=2, sticky="w", **padding)
+
+            self.flatten_check = ttk.Checkbutton(self.download_flags, variable=self.download_flatten_var)
+            self.flatten_check.pack(side="left")
+
+            self.keep_original_names_check = ttk.Checkbutton(self.download_flags, variable=self.download_keep_original_names_var)
+            self.keep_original_names_check.pack(side="left", padx=(12, 0))
 
             self.urls_frame = ttk.LabelFrame(parent)
             self.urls_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
@@ -248,6 +255,7 @@ if tk is not None:
             self.output_button.configure(text=self.i18n("gui.download.browse"))
             self.download_workers_label.configure(text=self.i18n("gui.workers"))
             self.flatten_check.configure(text=self.i18n("gui.download.flatten"))
+            self.keep_original_names_check.configure(text=self.i18n("gui.download.keep_original_names"))
             self.urls_frame.configure(text=self.i18n("gui.download.urls"))
             self.download_clear_button.configure(text=self.i18n("gui.clear"))
             self.download_button.configure(text=self.i18n("gui.download.start"))
@@ -394,6 +402,7 @@ if tk is not None:
                 self.output_button,
                 self.threads_scale,
                 self.flatten_check,
+                self.keep_original_names_check,
                 self.download_button,
                 self.download_clear_button,
                 self.remote_folder_entry,
@@ -449,7 +458,8 @@ if tk is not None:
             output = self.download_output_var.get().strip() or os.getcwd()
             threads = max(1, min(self.max_worker_threads, int(self.download_threads_var.get() or 1)))
             flatten = bool(self.download_flatten_var.get())
-            self._start_worker("gui.status.downloading", self._download_worker, username, password, urls, output, threads, flatten)
+            keep_original_names = bool(self.download_keep_original_names_var.get())
+            self._start_worker("gui.status.downloading", self._download_worker, username, password, urls, output, threads, flatten, keep_original_names)
 
         def _start_upload(self):
             try:
@@ -465,7 +475,7 @@ if tk is not None:
             threads = max(1, min(self.max_worker_threads, int(self.upload_threads_var.get() or 1)))
             self._start_worker("gui.status.uploading", self._upload_worker, username, password, paths, folder, threads)
 
-        def _download_worker(self, username, password, urls, output, threads, flatten):
+        def _download_worker(self, username, password, urls, output, threads, flatten, keep_original_names):
             os.makedirs(output, exist_ok=True)
             downloader = ChomikujDownloader(
                 username,
@@ -475,6 +485,7 @@ if tk is not None:
                 password_provider=self.password,
                 status_sink=self,
                 flatten=flatten,
+                keep_original_names=keep_original_names,
                 i18n=self.i18n,
             )
             for url in urls:

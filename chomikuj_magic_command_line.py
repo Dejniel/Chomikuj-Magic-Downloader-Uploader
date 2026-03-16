@@ -35,6 +35,7 @@ def build_parser(i18n):
     download.add_argument("-o", "--output", default=os.getcwd(), help=i18n("cli.download.output"))
     download.add_argument("-t", "--threads", type=int, default=5, help=i18n("cli.download.threads"))
     download.add_argument("--flatten", action="store_true", help=i18n("cli.download.flatten"))
+    download.add_argument("--keep-original-names", action="store_true", help=i18n("cli.download.keep_original_names"))
     download.add_argument("-v", "--debug", action="store_true", help=i18n("cli.debug"))
 
     upload = commands.add_parser("upload", help=i18n("cli.upload.help"))
@@ -75,6 +76,7 @@ def run_cli(argv, script_path):
                 status_sink=ui,
                 debug_hook=ui.debug,
                 flatten=args.flatten,
+                keep_original_names=args.keep_original_names,
                 i18n=i18n,
             )
             for url in args.urls:

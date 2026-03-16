@@ -14,6 +14,7 @@ RETRY_BACKOFF_SECONDS = 1
 USER_AGENT = "android/3.8.4 (python; python)"
 SECRET_KEY = "wzrwYua$.DSe8suk!`'2"
 FILE_ID_RE = re.compile(r",(\d+)(?:\.[^./]+)?$")
+LOCAL_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
 
 
 class ChomikujError(RuntimeError):
@@ -85,6 +86,26 @@ def load_default_env(script_path):
 
 def env_language(env):
     return env.get("LANGUAGE", DEFAULT_LANGUAGE)
+
+
+def encode_local_component(name, allow_extension=False):
+    text = str(name or "")
+    extension = ""
+    if allow_extension:
+        match = LOCAL_EXTENSION_RE.search(text)
+        if match and 0 < match.start() < len(text) - 1:
+            text, extension = text[: match.start()], match.group(0)
+
+    encoded = []
+    for char in text:
+        if ("a" <= char <= "z") or ("A" <= char <= "Z") or ("0" <= char <= "9"):
+            encoded.append(char)
+        elif char == " ":
+            encoded.append("+")
+        else:
+            encoded.extend(f"*{byte:02x}" for byte in char.encode("utf-8"))
+    encoded_text = "".join(encoded) or "_"
+    return encoded_text + extension
 
 
 def save_env_values(path, values):
