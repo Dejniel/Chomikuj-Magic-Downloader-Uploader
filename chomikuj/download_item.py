@@ -7,10 +7,11 @@ import time
 import requests
 
 from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
+from .i18n import ensure_i18n
 
 
 class DownloadItem(threading.Thread):
-    def __init__(self, semaphore, url, path, status_sink=None):
+    def __init__(self, semaphore, url, path, status_sink=None, i18n=None):
         super().__init__(daemon=True)
         self.semaphore = semaphore
         self.url = url
@@ -18,6 +19,7 @@ class DownloadItem(threading.Thread):
         self.status_sink = status_sink
         self.error = None
         self.skipped = False
+        self.i18n = ensure_i18n(i18n, language="en")
 
     def _emit(self, event, *args):
         if self.status_sink:
@@ -76,7 +78,7 @@ class DownloadItem(threading.Thread):
                                     os.replace(part_path, self.path)
                                     self._emit("download_finished", self.path, expected_size, total_size)
                                     return
-                                raise ChomikujError(f"Missing data to resume download: {self.path}")
+                                raise ChomikujError(self.i18n("error.download_missing_resume", path=self.path))
                             if response.status_code == 200 and mode == "ab":
                                 local_size = 0
                                 mode = "wb"
@@ -103,7 +105,9 @@ class DownloadItem(threading.Thread):
                     except requests.RequestException as exc:
                         is_timeout = is_timeout_error(exc)
                         if is_timeout and attempt >= RETRY_ATTEMPTS:
-                            raise ChomikujError(f"Download timeout for {self.path} after {RETRY_ATTEMPTS} attempts: {exc}") from exc
+                            raise ChomikujError(
+                                self.i18n("error.download_timeout", path=self.path, attempts=RETRY_ATTEMPTS, error=exc)
+                            ) from exc
                         if not is_timeout:
                             raise
                         time.sleep(RETRY_BACKOFF_SECONDS * attempt)

@@ -4,6 +4,8 @@ import os
 import re
 import sys
 
+from .i18n import DEFAULT_LANGUAGE, ensure_i18n
+
 BASE_URL = "https://mobile.chomikuj.pl"
 DEBUG = False
 TIMEOUT = 15
@@ -19,8 +21,8 @@ class ChomikujError(RuntimeError):
 
 
 class FileUnavailableError(ChomikujError):
-    def __init__(self, file_id, code=None, message=""):
-        text = f"File unavailable in API for fileId={file_id}"
+    def __init__(self, file_id, code=None, message="", i18n=None):
+        text = ensure_i18n(i18n, language="en")("error.file_unavailable", file_id=file_id)
         if code is not None:
             text += f": {code}"
         if message:
@@ -79,6 +81,10 @@ def resolve_default_env_path(script_path):
 
 def load_default_env(script_path):
     return load_env(resolve_default_env_path(script_path))
+
+
+def env_language(env):
+    return env.get("LANGUAGE", DEFAULT_LANGUAGE)
 
 
 def save_env_values(path, values):

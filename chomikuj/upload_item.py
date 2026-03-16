@@ -9,6 +9,7 @@ import zlib
 import requests
 
 from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
+from .i18n import ensure_i18n
 from .mobile_api import MobileApi
 
 CHUNK_SIZE = 524288
@@ -29,6 +30,7 @@ class UploadItem(threading.Thread):
         status_sink=None,
         debug=False,
         debug_hook=None,
+        i18n=None,
     ):
         super().__init__(daemon=True)
         self.semaphore = semaphore
@@ -39,7 +41,8 @@ class UploadItem(threading.Thread):
         self.debug = debug
         self.debug_hook = debug_hook
         self.error = None
-        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook)
+        self.i18n = ensure_i18n(i18n, language="en")
+        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.api_key = api_key
         self.api.account_id = account_id
         self.api.account_name = account_name
@@ -92,7 +95,7 @@ class UploadItem(threading.Thread):
         except requests.RequestException as exc:
             if is_timeout_error(exc):
                 raise
-            raise ChomikujError(f"Connection error during upload of {self.local_path}: {exc}") from exc
+            raise ChomikujError(self.i18n("error.upload_connection", path=self.local_path, error=exc)) from exc
         return response.status_code, next_offset
 
     def _refresh_upload_state(self, name, size, crc):
@@ -109,7 +112,7 @@ class UploadItem(threading.Thread):
             return None, int(size), True
         upload_url = payload.get("Url")
         if not upload_url:
-            raise ChomikujError(f"Missing URL after partialUpload for file: {self.local_path}")
+            raise ChomikujError(self.i18n("error.upload_missing_partial_url", path=self.local_path))
         uploaded = int(payload.get("Chunk") or 0)
         return upload_url, uploaded, False
 
@@ -117,7 +120,7 @@ class UploadItem(threading.Thread):
         with self.semaphore:
             try:
                 if not os.path.isfile(self.local_path):
-                    raise ChomikujError(f"This is not a file for upload: {self.local_path}")
+                    raise ChomikujError(self.i18n("error.upload_not_file", path=self.local_path))
                 name = os.path.basename(self.local_path)
                 size = os.path.getsize(self.local_path)
                 crc = self._crc32()
@@ -133,11 +136,11 @@ class UploadItem(threading.Thread):
                         status, uploaded = self._upload_chunk(name, upload_url, uploaded, size)
                     except requests.RequestException as exc:
                         if not is_timeout_error(exc):
-                            raise ChomikujError(f"Connection error during upload of {self.local_path}: {exc}") from exc
+                            raise ChomikujError(self.i18n("error.upload_connection", path=self.local_path, error=exc)) from exc
                         timeout_attempt += 1
                         if timeout_attempt >= RETRY_ATTEMPTS:
                             raise ChomikujError(
-                                f"Upload timeout for {self.local_path} after {RETRY_ATTEMPTS} attempts: {exc}"
+                                self.i18n("error.upload_timeout", path=self.local_path, attempts=RETRY_ATTEMPTS, error=exc)
                             ) from exc
                         time.sleep(RETRY_BACKOFF_SECONDS * timeout_attempt)
                         upload_url, uploaded, completed = self._refresh_upload_state(name, size, crc)
@@ -150,7 +153,7 @@ class UploadItem(threading.Thread):
                         timeout_attempt += 1
                         if timeout_attempt >= RETRY_ATTEMPTS:
                             raise ChomikujError(
-                                f"Upload timeout for {self.local_path} after {RETRY_ATTEMPTS} attempts"
+                                self.i18n("error.upload_timeout_no_detail", path=self.local_path, attempts=RETRY_ATTEMPTS)
                             )
                         time.sleep(RETRY_BACKOFF_SECONDS * timeout_attempt)
                         upload_url, uploaded, completed = self._refresh_upload_state(name, size, crc)
@@ -167,12 +170,12 @@ class UploadItem(threading.Thread):
                     if status == 206:
                         continue
                     if status == 409:
-                        raise ChomikujError(f"Upload conflict for file: {self.local_path}")
+                        raise ChomikujError(self.i18n("error.upload_conflict", path=self.local_path))
                     if status == 410:
-                        raise ChomikujError(f"Upload session expired for file: {self.local_path}")
+                        raise ChomikujError(self.i18n("error.upload_expired", path=self.local_path))
                     if status == 500:
-                        raise ChomikujError(f"Upload internal error for file: {self.local_path}")
-                    raise ChomikujError(f"Unknown upload error {status} for {self.local_path} to {self.target}")
+                        raise ChomikujError(self.i18n("error.upload_internal", path=self.local_path))
+                    raise ChomikujError(self.i18n("error.upload_unknown", status=status, path=self.local_path, target=self.target))
             except Exception as exc:
                 self.error = exc
                 self._emit("upload_failed", self.local_path, exc, self.target)

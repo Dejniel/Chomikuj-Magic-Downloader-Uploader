@@ -9,8 +9,8 @@ from .upload_item import UploadItem
 
 
 class ChomikujUploader(ChomikujBase):
-    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None):
-        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook)
+    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None):
+        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n)
         self.max_threads = max(1, int(max_threads or 1))
         self.status_sink = status_sink
         self.semaphore = threading.Semaphore(self.max_threads)
@@ -31,7 +31,7 @@ class ChomikujUploader(ChomikujBase):
             owner_name, segments = self.split_url(folder)
             owner = self.current_owner()
             if not self.same_name(owner_name, owner["name"]):
-                raise ChomikujError("Upload is only possible to your own account")
+                raise ChomikujError(self.i18n("error.upload_account_only"))
             return segments
         return [self.clean(part) for part in folder.split("/") if self.clean(part)]
 
@@ -47,7 +47,7 @@ class ChomikujUploader(ChomikujBase):
         listing = self.list_folder(owner, parent_id)
         folder = self.find_named_folder(listing["Folders"], folder_name)
         if folder is None:
-            raise ChomikujError(f"Failed to create remote folder: {folder_name}")
+            raise ChomikujError(self.i18n("error.upload_create_folder", folder_name=folder_name))
         return str(folder["Id"]), folder["Name"]
 
     def ensure_remote_folder_path(self, owner, segments):
@@ -91,13 +91,14 @@ class ChomikujUploader(ChomikujBase):
             status_sink=self.status_sink,
             debug=self.api.debug,
             debug_hook=self.api.debug_hook,
+            i18n=self.i18n,
         )
         self.threads.append(item)
         item.start()
 
     def _collect_directory_tasks(self, local_dir, owner, folder_id, resolved, tasks):
         if not os.path.isdir(local_dir):
-            raise ChomikujError(f"This is not a directory for upload: {local_dir}")
+            raise ChomikujError(self.i18n("error.upload_not_directory", path=local_dir))
         local_name = os.path.basename(os.path.normpath(local_dir))
         remote_folder_id, remote_resolved = self.ensure_remote_folder_path(owner, resolved + [local_name])
         entries = sorted(os.listdir(local_dir), key=str.casefold)
@@ -126,7 +127,7 @@ class ChomikujUploader(ChomikujBase):
                 except ChomikujError as exc:
                     self._record_pre_error(local_path, exc, target)
                 continue
-            self._record_pre_error(local_path, ChomikujError(f"Unsupported upload path: {path}"), target)
+            self._record_pre_error(local_path, ChomikujError(self.i18n("error.upload_unsupported_path", path=path)), target)
         return tasks
 
     def upload_files(self, paths, folder=None):
@@ -145,4 +146,6 @@ class ChomikujUploader(ChomikujBase):
                 errors.append((thread.local_path, thread.error))
         if errors:
             first_path, first_error = errors[0]
-            raise ChomikujError(f"{len(errors)} uploads failed. First: {first_path}: {first_error}")
+            raise ChomikujError(
+                self.i18n("error.upload_batch_failed", count=len(errors), path=first_path, error=first_error)
+            )

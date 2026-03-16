@@ -10,8 +10,8 @@ from .download_item import DownloadItem
 
 
 class ChomikujDownloader(ChomikujBase):
-    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False):
-        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook)
+    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, i18n=None):
+        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n)
         self.max_threads = int(max_threads)
         self.output_dir = output_dir
         self.status_sink = status_sink
@@ -25,14 +25,14 @@ class ChomikujDownloader(ChomikujBase):
         code = payload.get("Code")
         message = (payload.get("Message") or "").strip()
         if code == 604:
-            raise FileUnavailableError(file_id, code, message)
+            raise FileUnavailableError(file_id, code, message, i18n=self.i18n)
         if code not in (0, 605):
             suffix = f": {code}"
             if message:
                 suffix += f" {message}"
-            raise ChomikujError(f"files/download error for fileId={file_id}{suffix}")
+            raise ChomikujError(self.i18n("error.download_api", file_id=file_id, suffix=suffix))
         if not payload.get("FileUrl"):
-            raise ChomikujError(f"Missing FileUrl for fileId={file_id}")
+            raise ChomikujError(self.i18n("error.download_missing_url", file_id=file_id))
         return payload["FileUrl"]
 
     def queue_file(self, file_name, url, rel_dir):
@@ -46,7 +46,7 @@ class ChomikujDownloader(ChomikujBase):
         self.queued.add(path)
         if self.status_sink:
             self.status_sink.download_queued(path)
-        item = DownloadItem(self.semaphore, url, path, status_sink=self.status_sink)
+        item = DownloadItem(self.semaphore, url, path, status_sink=self.status_sink, i18n=self.i18n)
         self.threads.append(item)
         item.start()
 
@@ -94,7 +94,7 @@ class ChomikujDownloader(ChomikujBase):
                 rel_dir = "" if self.flatten else "/".join([owner["name"], *resolved])
                 self.add_folder_recursive(owner, folder_id, rel_dir)
                 return
-        raise ChomikujError(f"Could not resolve the URL through the new API: {url}")
+        raise ChomikujError(self.i18n("error.download_unresolved_url", url=url))
 
     def wait(self):
         errors = []
@@ -104,4 +104,6 @@ class ChomikujDownloader(ChomikujBase):
                 errors.append(thread)
         if errors:
             first = errors[0]
-            raise ChomikujError(f"{len(errors)} downloads failed. First: {first.path}: {first.error}")
+            raise ChomikujError(
+                self.i18n("error.download_batch_failed", count=len(errors), path=first.path, error=first.error)
+            )

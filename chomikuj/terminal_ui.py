@@ -6,11 +6,14 @@ import threading
 import time
 from getpass import getpass
 
+from .i18n import ensure_i18n
+
 
 class TerminalUi:
-    def __init__(self, download_slots=0, live=True):
+    def __init__(self, download_slots=0, live=True, i18n=None):
         self.download_slots = max(0, int(download_slots))
         self.live = bool(live and sys.stdout.isatty())
+        self.i18n = ensure_i18n(i18n, language="en")
         self.lock = threading.Lock()
         self.last_render = 0.0
         self.download_total = 0
@@ -23,16 +26,16 @@ class TerminalUi:
         self.plain = not self.live
 
     def login(self):
-        return input("Login: ").strip()
+        return input(self.i18n("terminal.prompt.login")).strip()
 
     def login_password(self):
-        return getpass("Password: ")
+        return getpass(self.i18n("terminal.prompt.password"))
 
     def password(self, kind, identifier):
         if kind == "account":
-            prompt = f"Password for protected resources of user {identifier}: "
+            prompt = self.i18n("terminal.prompt.account_password", identifier=identifier)
         else:
-            prompt = f"Password for folder {identifier}: "
+            prompt = self.i18n("terminal.prompt.folder_password", identifier=identifier)
         return getpass(prompt)
 
     def error(self, message):
@@ -95,7 +98,7 @@ class TerminalUi:
             state["total"] = total
             self._release_slot(path)
             if self.plain:
-                print("OK  ", path)
+                print(self.i18n("terminal.tag.done"), path)
             self._render(force=True)
 
     def download_skipped(self, path):
@@ -105,7 +108,7 @@ class TerminalUi:
             state["status"] = "skipped"
             self._release_slot(path)
             if self.plain:
-                print("SKIP", path)
+                print(self.i18n("terminal.tag.skipped"), path)
             self._render(force=True)
 
     def download_failed(self, path, error):
@@ -116,7 +119,7 @@ class TerminalUi:
             state["error"] = str(error)
             self._release_slot(path)
             if self.plain:
-                print("ERR ", path, error)
+                print(self.i18n("terminal.tag.failed"), path, error)
             self._render(force=True)
 
     def upload_started(self, path, target, total):
@@ -148,7 +151,7 @@ class TerminalUi:
                 "total": total,
             }
             if self.plain:
-                print("OKUP", path)
+                print(self.i18n("terminal.tag.done"), path)
             self._render(force=True)
 
     def upload_failed(self, path, error, target):
@@ -159,7 +162,7 @@ class TerminalUi:
                 "error": str(error),
             }
             if self.plain:
-                print("ERUP", path, error)
+                print(self.i18n("terminal.tag.failed"), path, error)
             self._render(force=True)
 
     def _format_bytes(self, value):
@@ -187,7 +190,7 @@ class TerminalUi:
         for slot in range(1, self.download_slots + 1):
             path = self.download_slots_map.get(slot)
             if not path:
-                active.append(f"[D{slot}] idle")
+                active.append(self.i18n("terminal.slot.idle", slot=slot))
                 continue
             state = self.download_states.get(path, {})
             downloaded = state.get("downloaded") or 0
@@ -211,7 +214,7 @@ class TerminalUi:
             stats = f"{self._format_bytes(uploaded)}/{self._format_bytes(total)}"
             suffix = f" -> {state.get('target')}"
             if status == "error":
-                lines.append(f"[U{index}] ERR {self._basename(path)}{suffix}: {state.get('error')}")
+                lines.append(f"[U{index}] {self.i18n('terminal.tag.failed')} {self._basename(path)}{suffix}: {state.get('error')}")
             else:
                 lines.append(f"[U{index}] {percent} {bar} {stats} {self._basename(path)}{suffix}")
         return lines
@@ -223,13 +226,19 @@ class TerminalUi:
         if not force and now - self.last_render < 0.08:
             return
         lines = [
-            f"Downloads: total={self.download_total} ok={self.download_done} skip={self.download_skipped_count} err={self.download_failed_count}",
+            self.i18n(
+                "terminal.summary.downloads",
+                total=self.download_total,
+                done=self.download_done,
+                skipped=self.download_skipped_count,
+                failed=self.download_failed_count,
+            ),
         ]
         lines.extend(self._download_lines())
         upload_lines = self._upload_lines()
         if upload_lines:
             lines.append("")
-            lines.append("Upload:")
+            lines.append(self.i18n("terminal.section.upload"))
             lines.extend(upload_lines)
         sys.stdout.write("\033[H\033[2J")
         sys.stdout.write("\n".join(lines) + "\n")

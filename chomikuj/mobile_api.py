@@ -9,6 +9,7 @@ from urllib.parse import quote, urlencode
 import requests
 
 from .common import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError, is_timeout_error
+from .i18n import ensure_i18n
 
 
 class MobileApi:
@@ -18,11 +19,12 @@ class MobileApi:
     so it is immediately clear which fields a given endpoint expects.
     """
 
-    def __init__(self, username, password, debug=False, debug_hook=None):
+    def __init__(self, username, password, debug=False, debug_hook=None, i18n=None):
         self.username = username
         self.password = password
         self.debug = debug
         self.debug_hook = debug_hook
+        self.i18n = ensure_i18n(i18n, language="en")
         self.api_key = None
         self.account_id = None
         self.account_name = None
@@ -72,12 +74,14 @@ class MobileApi:
             except requests.RequestException as exc:
                 if is_timeout_error(exc):
                     if attempt >= attempts:
-                        raise ChomikujError(f"API timeout for {method} {path} after {attempts} attempts: {exc}") from exc
+                        raise ChomikujError(
+                            self.i18n("error.api_timeout", method=method, path=path, attempts=attempts, error=exc)
+                        ) from exc
                     if self.debug:
                         self._debug(f"DEBUG timeout {method} {path_query}, attempt {attempt}/{attempts}, retrying")
                     time.sleep(RETRY_BACKOFF_SECONDS * attempt)
                     continue
-                raise ChomikujError(f"API connection error for {method} {path}: {exc}") from exc
+                raise ChomikujError(self.i18n("error.api_connection", method=method, path=path, error=exc)) from exc
         if self.debug:
             self._debug(f"DEBUG HTTP {response.status_code}")
             self._debug(response.text[:4000])
@@ -100,7 +104,7 @@ class MobileApi:
         try:
             return response.json()
         except ValueError as exc:
-            raise ChomikujError(f"Invalid JSON from {path}: {exc}") from exc
+            raise ChomikujError(self.i18n("error.api_invalid_json", path=path, error=exc)) from exc
 
     def activate_payment(self, purchase_info, signature):
         """POST /api/v3/payments/android/activate.
@@ -136,7 +140,7 @@ class MobileApi:
         self.account_id = str(payload.get("AccountId") or "")
         self.account_name = payload.get("AccountName") or self.username
         if not self.api_key:
-            raise ChomikujError("Missing ApiKey after login")
+            raise ChomikujError(self.i18n("error.api_missing_key"))
         return payload
 
     def account_password_read(self, account_id, password):

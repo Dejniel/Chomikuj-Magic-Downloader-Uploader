@@ -4,12 +4,14 @@ import re
 from urllib.parse import unquote_plus, urlsplit
 
 from .common import FILE_ID_RE, ApiRequestError, ChomikujError
+from .i18n import ensure_i18n
 from .mobile_api import MobileApi
 
 
 class ChomikujBase:
-    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None):
-        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook)
+    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None):
+        self.i18n = ensure_i18n(i18n, language="en")
+        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.account_login()
         self.debug = debug
         self.password_provider = password_provider
@@ -33,20 +35,20 @@ class ChomikujBase:
     def account_password(self, owner_name):
         if owner_name not in self.account_passwords:
             if not self.password_provider:
-                raise ChomikujError(f"Password required for protected resources of user {owner_name}")
+                raise ChomikujError(self.i18n("error.password_required_account", owner_name=owner_name))
             password = self.password_provider("account", owner_name)
             if not password:
-                raise ChomikujError(f"No password provided for protected resources of user {owner_name}")
+                raise ChomikujError(self.i18n("error.password_missing_account", owner_name=owner_name))
             self.account_passwords[owner_name] = password
         return self.account_passwords[owner_name]
 
     def folder_password(self, folder_key):
         if folder_key not in self.folder_passwords:
             if not self.password_provider:
-                raise ChomikujError(f"Password required for folder {folder_key}")
+                raise ChomikujError(self.i18n("error.password_required_folder", folder_key=folder_key))
             password = self.password_provider("folder", folder_key)
             if not password:
-                raise ChomikujError(f"No password provided for folder {folder_key}")
+                raise ChomikujError(self.i18n("error.password_missing_folder", folder_key=folder_key))
             self.folder_passwords[folder_key] = password
         return self.folder_passwords[folder_key]
 
@@ -75,9 +77,9 @@ class ChomikujBase:
                 break
             page += 1
         if not matches:
-            raise ChomikujError(f"Account not found for name: {owner_name}")
+            raise ChomikujError(self.i18n("error.account_not_found", owner_name=owner_name))
         if len(matches) > 1:
-            raise ChomikujError(f"Ambiguous account name: {owner_name}")
+            raise ChomikujError(self.i18n("error.account_ambiguous", owner_name=owner_name))
         return {"id": str(matches[0]["AccountId"]), "name": matches[0]["AccountName"]}
 
     def current_owner(self):
@@ -128,16 +130,16 @@ class ChomikujBase:
     def split_url(self, url):
         parsed = urlsplit(url)
         if parsed.scheme not in ("http", "https") or parsed.netloc not in ("chomikuj.pl", "www.chomikuj.pl"):
-            raise ChomikujError(f"Unsupported URL: {url}")
+            raise ChomikujError(self.i18n("error.unsupported_url", url=url))
         parts = [self.clean(part) for part in parsed.path.split("/") if part]
         if not parts:
-            raise ChomikujError(f"Invalid URL: {url}")
+            raise ChomikujError(self.i18n("error.invalid_url", url=url))
         return parts[0], parts[1:]
 
     def find_named_folder(self, folders, segment):
         matches = [folder for folder in folders if self.same_name(folder.get("Name", ""), segment)]
         if len(matches) > 1:
-            raise ChomikujError(f"Ambiguous folder: {segment}")
+            raise ChomikujError(self.i18n("error.folder_ambiguous", segment=segment))
         return matches[0] if matches else None
 
     def resolve_folder_path(self, owner, segments):

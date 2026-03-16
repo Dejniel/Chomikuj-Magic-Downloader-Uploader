@@ -6,6 +6,7 @@ import sys
 
 from chomikuj import ChomikujDownloader, ChomikujUploader
 from chomikuj.common import DEBUG, ChomikujError, load_default_env
+from chomikuj.i18n import get_i18n
 from chomikuj.terminal_ui import TerminalUi
 
 
@@ -21,37 +22,42 @@ def normalize_threads(value):
     return max(1, int(value or 1))
 
 
-def build_parser():
+def build_parser(i18n):
     parser = argparse.ArgumentParser(
         prog="chomikuj_magic_command_line.py",
-        description="Download and upload files through the new Chomikuj mobile API.",
-        epilog="Login and password are read from .env (USERNAME, PASSWORD) in the current directory, and if it is missing then from the script directory. If they are still missing the program will ask for them interactively.",
+        description=i18n("cli.description"),
+        epilog=i18n("cli.epilog"),
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    download = commands.add_parser("download", help="Download files and folders from chomikuj.pl links.")
-    download.add_argument("urls", nargs="+", help="One or more chomikuj.pl links to download.")
-    download.add_argument("-o", "--output", default=os.getcwd(), help="Destination directory. Default: current directory.")
-    download.add_argument("-t", "--threads", type=int, default=5, help="Number of concurrent downloads. Default: 5.")
-    download.add_argument("--flatten", action="store_true", help="Do not recreate the initial URL tree. Files go directly into the destination directory.")
-    download.add_argument("-v", "--debug", action="store_true", help="Print API request debug logs.")
+    download = commands.add_parser("download", help=i18n("cli.download.help"))
+    download.add_argument("urls", nargs="+", help=i18n("cli.download.urls"))
+    download.add_argument("-o", "--output", default=os.getcwd(), help=i18n("cli.download.output"))
+    download.add_argument("-t", "--threads", type=int, default=5, help=i18n("cli.download.threads"))
+    download.add_argument("--flatten", action="store_true", help=i18n("cli.download.flatten"))
+    download.add_argument("-v", "--debug", action="store_true", help=i18n("cli.debug"))
 
-    upload = commands.add_parser("upload", help="Upload local files or folders to your account.")
-    upload.add_argument("paths", nargs="+", help="Local files or folders to upload. Directories are uploaded recursively.")
-    upload.add_argument("--folder", default="", help="Remote folder path on your account or a folder URL. Default: root directory.")
-    upload.add_argument("-t", "--threads", type=int, default=2, help="Number of concurrent uploads. Default: 2.")
-    upload.add_argument("-v", "--debug", action="store_true", help="Print API request debug logs.")
+    upload = commands.add_parser("upload", help=i18n("cli.upload.help"))
+    upload.add_argument("paths", nargs="+", help=i18n("cli.upload.paths"))
+    upload.add_argument("--folder", default="", help=i18n("cli.upload.folder"))
+    upload.add_argument("-t", "--threads", type=int, default=2, help=i18n("cli.upload.threads"))
+    upload.add_argument("-v", "--debug", action="store_true", help=i18n("cli.debug"))
     return parser
 
 
 def run_cli(argv, script_path):
-    parser = build_parser()
+    i18n = get_i18n("en")
+    parser = build_parser(i18n)
     args = parser.parse_args(normalize_argv(argv))
     if args.command == "download":
         args.threads = normalize_threads(args.threads)
     elif args.command == "upload":
         args.threads = normalize_threads(args.threads)
-    ui = TerminalUi(download_slots=args.threads if args.command == "download" else 0, live=not getattr(args, "debug", False))
+    ui = TerminalUi(
+        download_slots=args.threads if args.command == "download" else 0,
+        live=not getattr(args, "debug", False),
+        i18n=i18n,
+    )
     env = load_default_env(script_path)
     username = env.get("USERNAME", "") or ui.login()
     password = env.get("PASSWORD", "") or ui.login_password()
@@ -69,6 +75,7 @@ def run_cli(argv, script_path):
                 status_sink=ui,
                 debug_hook=ui.debug,
                 flatten=args.flatten,
+                i18n=i18n,
             )
             for url in args.urls:
                 downloader.handle_url(url)
@@ -82,10 +89,11 @@ def run_cli(argv, script_path):
                 password_provider=ui.password,
                 status_sink=ui,
                 debug_hook=ui.debug,
+                i18n=i18n,
             )
             uploader.upload_files(args.paths, folder=args.folder)
     except KeyboardInterrupt:
-        error = "Interrupted by user."
+        error = i18n("cli.interrupted")
     except ChomikujError as exc:
         error = str(exc)
     finally:
