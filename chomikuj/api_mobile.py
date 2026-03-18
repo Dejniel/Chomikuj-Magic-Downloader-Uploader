@@ -8,11 +8,11 @@ from urllib.parse import quote, urlencode
 
 import requests
 
-from .common import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError, is_timeout_error
+from .common_runtime import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError, is_timeout_error
 from .i18n import ensure_i18n
 
 
-class MobileApi:
+class ApiMobile:
     """Client for `mobile.chomikuj.pl/api/v3`.
 
     Public methods use explicit parameters instead of an anonymous `body`,

@@ -19,8 +19,9 @@ except ModuleNotFoundError as exc:
     messagebox = None
     ttk = None
 
-from chomikuj import ChomikujDownloader, ChomikujUploader
-from chomikuj.common import ChomikujError, env_language, load_default_env, resolve_default_env_path, save_env_values
+from chomikuj import DownloadManager, UploadManager
+from chomikuj.common_env import env_language, load_default_env, resolve_default_env_path, save_env_values
+from chomikuj.common_runtime import ChomikujError
 from chomikuj.i18n import Translator
 
 
@@ -494,7 +495,7 @@ if tk is not None:
 
         def _download_worker(self, username, password, urls, output, threads, recursive, flatten, keep_original_names):
             os.makedirs(output, exist_ok=True)
-            downloader = ChomikujDownloader(
+            downloader = DownloadManager(
                 username,
                 password,
                 threads,
@@ -511,7 +512,7 @@ if tk is not None:
             downloader.wait()
 
         def _upload_worker(self, username, password, paths, folder, threads):
-            uploader = ChomikujUploader(
+            uploader = UploadManager(
                 username,
                 password,
                 max_threads=threads,

@@ -5,11 +5,11 @@ import time
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, ChomikujError, is_timeout_error
+from .common_runtime import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, ChomikujError, is_timeout_error
 from .i18n import ensure_i18n
 
 
-class FolderRequestIdResolverBox:
+class FolderResolverRequestIdBox:
     TOKEN_RE = re.compile(r'name="__RequestVerificationToken".*?value="([^"]+)"', re.S)
     REQ_ID_RE = re.compile(r"chomik://files/(\d+)/(\d+)")
 
@@ -83,7 +83,7 @@ class FolderRequestIdResolverBox:
             },
         )
 
-    def resolve(self, owner_name, folder_id):
+    def resolve_request_id(self, owner_name, folder_id):
         key = (str(owner_name or "").casefold(), str(folder_id))
         if key in self.req_id_cache:
             return self.req_id_cache[key]

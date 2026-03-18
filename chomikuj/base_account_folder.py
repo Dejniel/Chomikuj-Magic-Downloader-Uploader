@@ -3,15 +3,15 @@
 import re
 from urllib.parse import unquote_plus, urlsplit
 
-from .common import FILE_ID_RE, ApiRequestError, ChomikujError, PasswordSkippedError
+from .common_runtime import FILE_ID_RE, ApiRequestError, ChomikujError, PasswordSkippedError
 from .i18n import ensure_i18n
-from .mobile_api import MobileApi
+from .api_mobile import ApiMobile
 
 
-class ChomikujBase:
+class BaseAccountFolder:
     def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None, allow_password_skip=False):
         self.i18n = ensure_i18n(i18n, language="en")
-        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
+        self.api = ApiMobile(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.account_login()
         self.debug = debug
         self.password_provider = password_provider

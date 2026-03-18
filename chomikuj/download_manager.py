@@ -3,13 +3,14 @@
 import os
 import threading
 
-from .common import ChomikujError, encode_local_component
-from .download_item import DownloadItem
+from .common_local_name import encode_local_component
+from .common_runtime import ChomikujError
+from .download_worker import DownloadWorker
 from .download_planner import DownloadPlanner
 from .download_source import DownloadSourceDirect
 
 
-class ChomikujDownloader:
+class DownloadManager:
     def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, keep_original_names=False, recursive=False, i18n=None):
         self.max_threads = int(max_threads)
         self.output_dir = output_dir
@@ -41,9 +42,9 @@ class ChomikujDownloader:
             self.status_sink.download_queued(path)
         if isinstance(source, str):
             source = DownloadSourceDirect(source)
-        item = DownloadItem(self.semaphore, source, path, status_sink=self.status_sink, i18n=self.i18n)
-        self.threads.append(item)
-        item.start()
+        worker = DownloadWorker(self.semaphore, source, path, status_sink=self.status_sink, i18n=self.i18n)
+        self.threads.append(worker)
+        worker.start()
 
     def _local_path(self, file_name, rel_dir):
         parts = [self.output_dir]

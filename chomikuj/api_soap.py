@@ -6,7 +6,7 @@ from xml.etree import ElementTree as ET
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, ApiRequestError, ChomikujError, is_timeout_error
+from .common_runtime import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, ApiRequestError, ChomikujError, is_timeout_error
 from .i18n import ensure_i18n
 
 SOAP_URL = "https://box.chomikuj.pl/services/ChomikBoxService.svc"
@@ -80,7 +80,7 @@ class ApiSoap:
         headers = {
             "SOAPAction": f"http://chomikuj.pl/IChomikBoxService/{action}",
             "Content-Type": "text/xml;charset=utf-8",
-            "Accept-Encoding": "identity",
+            "Accept-Encoding": "gzip",
             "Accept-Language": "pl-PL,en,*",
             "User-Agent": "Mozilla/5.0",
             "Host": "box.chomikuj.pl",

@@ -6,11 +6,11 @@ import time
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, DownloadSkippedError, is_timeout_error
+from .common_runtime import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, DownloadSkippedError, is_timeout_error
 from .i18n import ensure_i18n
 
 
-class DownloadItem(threading.Thread):
+class DownloadWorker(threading.Thread):
     def __init__(self, semaphore, source, path, status_sink=None, i18n=None):
         super().__init__(daemon=True)
         self.semaphore = semaphore

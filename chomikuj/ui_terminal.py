@@ -9,7 +9,7 @@ from getpass import getpass
 from .i18n import ensure_i18n
 
 
-class TerminalUi:
+class UiTerminal:
     def __init__(self, download_slots=0, live=True, i18n=None):
         self.download_slots = max(0, int(download_slots))
         self.live = bool(live and sys.stdout.isatty())

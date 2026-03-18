@@ -8,14 +8,14 @@ import zlib
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
+from .common_runtime import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
 from .i18n import ensure_i18n
-from .mobile_api import MobileApi
+from .api_mobile import ApiMobile
 
 CHUNK_SIZE = 524288
 
 
-class UploadItem(threading.Thread):
+class UploadWorker(threading.Thread):
     def __init__(
         self,
         semaphore,
@@ -42,7 +42,7 @@ class UploadItem(threading.Thread):
         self.debug_hook = debug_hook
         self.error = None
         self.i18n = ensure_i18n(i18n, language="en")
-        self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
+        self.api = ApiMobile(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.api_key = api_key
         self.api.account_id = account_id
         self.api.account_name = account_name

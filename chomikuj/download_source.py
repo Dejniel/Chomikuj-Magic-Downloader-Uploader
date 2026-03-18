@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .common import ApiRequestError, FileUnavailableError
+from .common_runtime import ApiRequestError, FileUnavailableError
 
 
 class DownloadSourceDirect:
@@ -21,7 +21,7 @@ class DownloadSourceSoap:
         return self.reader.download_url(self.entry, self.folder_request_path)
 
 
-class DownloadSourceV3:
+class DownloadSourceMobile:
     def __init__(self, reader, entry, fallback_source=None):
         self.reader = reader
         self.entry = entry

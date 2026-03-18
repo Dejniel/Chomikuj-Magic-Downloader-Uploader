@@ -5,9 +5,9 @@ import threading
 from urllib.parse import quote_plus, unquote_plus, urlsplit
 
 from .api_soap import ApiSoap
-from .common import ChomikujError, DownloadSkippedError
+from .common_runtime import ChomikujError, DownloadSkippedError
 from .download_source import DownloadSourceDirect, DownloadSourceSoap
-from .folder_request_id_resolver_box import FolderRequestIdResolverBox
+from .folder_resolver_request_id_box import FolderResolverRequestIdBox
 from .i18n import ensure_i18n
 
 
@@ -24,7 +24,7 @@ class DownloadReaderSoap:
         self.i18n = ensure_i18n(i18n, language="en")
         self.api = ApiSoap(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.auth()
-        self._request_resolver = None
+        self._folder_resolver = None
         self._thread_api = threading.local()
 
     def _debug(self, message):
@@ -211,9 +211,9 @@ class DownloadReaderSoap:
             raise last_error
         raise ChomikujError(self.i18n("error.download_unresolved_url", url=url))
 
-    def _request_resolver_instance(self):
-        if self._request_resolver is None:
-            self._request_resolver = FolderRequestIdResolverBox(
+    def _folder_resolver_instance(self):
+        if self._folder_resolver is None:
+            self._folder_resolver = FolderResolverRequestIdBox(
                 self.username,
                 self.password,
                 self.api.token,
@@ -221,12 +221,12 @@ class DownloadReaderSoap:
                 debug_hook=self.debug_hook,
                 i18n=self.i18n,
             )
-        return self._request_resolver
+        return self._folder_resolver
 
     def read_folder(self, owner, folder_id, resolved_segments):
         first_error = None
         try:
-            req_id = self._request_resolver_instance().resolve(owner["name"], folder_id)
+            req_id = self._folder_resolver_instance().resolve_request_id(owner["name"], folder_id)
             return self.api.download(req_id, None, None)
         except ChomikujError as exc:
             first_error = exc

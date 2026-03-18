@@ -2,11 +2,11 @@
 
 Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases)  for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
-Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's new JSON v3 API instead of the old SOAP XML API
+Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's mobile JSON API with old SOAP/web fallback where it is still needed
 
 Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem i [wesprzyj moją pracę](https://buymeacoffee.com/dejniel)
 
-![Chomikuj Magic Downloader Uploader LOGO Hamster](chomikuj_magic.png)
+![Chomikuj Magic Downloader Uploader LOGO Hamster](banner.png)
 
 # We need you!
 
@@ -50,7 +50,7 @@ Examples below show how to run the source files from the project directory.
 You can download, upload with one button, choose a file, and work:
 
 ```bash
-python3 chomikuj_magic_graphical.py
+python3 chomikuj_magic_gui.py
 ```
 
 ## Command line interface

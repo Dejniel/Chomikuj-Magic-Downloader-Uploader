@@ -1,6 +1,6 @@
 __pycache__
 .env
-origin.*
+hide.*
 build/
 dist/
 *.spec

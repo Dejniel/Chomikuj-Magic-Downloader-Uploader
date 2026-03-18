@@ -4,10 +4,11 @@ import argparse
 import os
 import sys
 
-from chomikuj import ChomikujDownloader, ChomikujUploader
-from chomikuj.common import DEBUG, ChomikujError, load_default_env
+from chomikuj import DownloadManager, UploadManager
+from chomikuj.common_env import load_default_env
+from chomikuj.common_runtime import DEBUG, ChomikujError
 from chomikuj.i18n import get_i18n
-from chomikuj.terminal_ui import TerminalUi
+from chomikuj.ui_terminal import UiTerminal
 
 
 def normalize_argv(argv):
@@ -55,7 +56,7 @@ def run_cli(argv, script_path):
         args.threads = normalize_threads(args.threads)
     elif args.command == "upload":
         args.threads = normalize_threads(args.threads)
-    ui = TerminalUi(
+    ui = UiTerminal(
         download_slots=args.threads if args.command == "download" else 0,
         live=not getattr(args, "debug", False),
         i18n=i18n,
@@ -67,7 +68,7 @@ def run_cli(argv, script_path):
     try:
         if args.command == "download":
             os.makedirs(args.output, exist_ok=True)
-            downloader = ChomikujDownloader(
+            downloader = DownloadManager(
                 username,
                 password,
                 args.threads,
@@ -85,7 +86,7 @@ def run_cli(argv, script_path):
                 downloader.handle_url(url)
             downloader.wait()
         else:
-            uploader = ChomikujUploader(
+            uploader = UploadManager(
                 username,
                 password,
                 max_threads=args.threads,

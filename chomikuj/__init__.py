@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from .downloader import ChomikujDownloader
-from .mobile_api import MobileApi
-from .uploader import ChomikujUploader
+from .download_manager import DownloadManager
+from .api_mobile import ApiMobile
+from .upload_manager import UploadManager
 
-__all__ = ["ChomikujDownloader", "ChomikujUploader", "MobileApi"]
+__all__ = ["DownloadManager", "UploadManager", "ApiMobile"]

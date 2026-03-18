@@ -3,12 +3,12 @@
 import os
 import threading
 
-from .base import ChomikujBase
-from .common import ChomikujError
-from .upload_item import UploadItem
+from .base_account_folder import BaseAccountFolder
+from .common_runtime import ChomikujError
+from .upload_worker import UploadWorker
 
 
-class ChomikujUploader(ChomikujBase):
+class UploadManager(BaseAccountFolder):
     def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None):
         super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n)
         self.max_threads = max(1, int(max_threads or 1))
@@ -78,7 +78,7 @@ class ChomikujUploader(ChomikujBase):
         self._emit("upload_failed", local_path, exc, target)
 
     def _queue_file(self, local_path, folder_id, target):
-        item = UploadItem(
+        worker = UploadWorker(
             self.semaphore,
             self.api.username,
             self.api.password,
@@ -93,8 +93,8 @@ class ChomikujUploader(ChomikujBase):
             debug_hook=self.api.debug_hook,
             i18n=self.i18n,
         )
-        self.threads.append(item)
-        item.start()
+        self.threads.append(worker)
+        worker.start()
 
     def _collect_directory_tasks(self, local_dir, owner, folder_id, resolved, tasks):
         if not os.path.isdir(local_dir):
