@@ -35,6 +35,10 @@ class FileUnavailableError(ChomikujError):
         self.api_message = message
 
 
+class DownloadSkippedError(ChomikujError):
+    pass
+
+
 class ApiRequestError(ChomikujError):
     def __init__(self, status, code=None, message="", body=""):
         super().__init__(message or f"HTTP {status}")

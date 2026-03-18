@@ -124,6 +124,8 @@ class ChomikujBase:
             result["Owner"] = payload.get("Owner", result["Owner"])
             result["ParentId"] = payload.get("ParentId", result["ParentId"])
             result["ParentName"] = payload.get("ParentName", result["ParentName"])
+            if not payload.get("Folders") and not payload.get("Files"):
+                break
             if not payload.get("IsNextPageAvailable"):
                 break
             page += 1

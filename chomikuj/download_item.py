@@ -6,15 +6,15 @@ import time
 
 import requests
 
-from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, is_timeout_error
+from .common import RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, TIMEOUT, USER_AGENT, ChomikujError, DownloadSkippedError, is_timeout_error
 from .i18n import ensure_i18n
 
 
 class DownloadItem(threading.Thread):
-    def __init__(self, semaphore, url, path, status_sink=None, i18n=None):
+    def __init__(self, semaphore, source, path, status_sink=None, i18n=None):
         super().__init__(daemon=True)
         self.semaphore = semaphore
-        self.url = url
+        self.source = source
         self.path = path
         self.status_sink = status_sink
         self.error = None
@@ -46,6 +46,7 @@ class DownloadItem(threading.Thread):
                     os.makedirs(directory, exist_ok=True)
 
                 part_path = self.path + ".part"
+                url = None
                 for attempt in range(1, RETRY_ATTEMPTS + 1):
                     has_final = os.path.exists(self.path)
                     has_part = os.path.exists(part_path)
@@ -56,6 +57,8 @@ class DownloadItem(threading.Thread):
                         return
 
                     local_size = os.path.getsize(part_path) if has_part else 0
+                    if url is None:
+                        url = self.source.resolve_url()
                     headers = {"User-Agent": USER_AGENT}
                     mode = "wb"
                     if local_size:
@@ -63,7 +66,7 @@ class DownloadItem(threading.Thread):
                         mode = "ab"
 
                     try:
-                        with requests.get(self.url, headers=headers, stream=True, timeout=TIMEOUT, allow_redirects=True) as response:
+                        with requests.get(url, headers=headers, stream=True, timeout=TIMEOUT, allow_redirects=True) as response:
                             if response.status_code == 416:
                                 total_size = self._total_size(response, local_size)
                                 expected_size = total_size if total_size is not None else local_size
@@ -111,6 +114,9 @@ class DownloadItem(threading.Thread):
                         if not is_timeout:
                             raise
                         time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+            except DownloadSkippedError:
+                self.skipped = True
+                self._emit("download_skipped", self.path)
             except Exception as exc:
                 self.error = exc
                 self._emit("download_failed", self.path, exc)

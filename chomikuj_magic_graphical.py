@@ -48,6 +48,7 @@ if tk is not None:
             self.download_threads_label_var = tk.StringVar()
             self.upload_threads_var = tk.IntVar(value=min(2, self.max_worker_threads))
             self.upload_threads_label_var = tk.StringVar()
+            self.download_recursive_var = tk.BooleanVar(value=False)
             self.download_flatten_var = tk.BooleanVar(value=False)
             self.download_keep_original_names_var = tk.BooleanVar(value=False)
             self.upload_folder_var = tk.StringVar(value="")
@@ -165,8 +166,11 @@ if tk is not None:
             self.download_flags = ttk.Frame(config)
             self.download_flags.grid(row=2, column=1, columnspan=2, sticky="w", **padding)
 
+            self.recursive_check = ttk.Checkbutton(self.download_flags, variable=self.download_recursive_var)
+            self.recursive_check.pack(side="left")
+
             self.flatten_check = ttk.Checkbutton(self.download_flags, variable=self.download_flatten_var)
-            self.flatten_check.pack(side="left")
+            self.flatten_check.pack(side="left", padx=(12, 0))
 
             self.keep_original_names_check = ttk.Checkbutton(self.download_flags, variable=self.download_keep_original_names_var)
             self.keep_original_names_check.pack(side="left", padx=(12, 0))
@@ -254,6 +258,7 @@ if tk is not None:
             self.output_label.configure(text=self.i18n("gui.download.output"))
             self.output_button.configure(text=self.i18n("gui.download.browse"))
             self.download_workers_label.configure(text=self.i18n("gui.workers"))
+            self.recursive_check.configure(text=self.i18n("gui.download.recursive"))
             self.flatten_check.configure(text=self.i18n("gui.download.flatten"))
             self.keep_original_names_check.configure(text=self.i18n("gui.download.keep_original_names"))
             self.urls_frame.configure(text=self.i18n("gui.download.urls"))
@@ -401,6 +406,7 @@ if tk is not None:
                 self.output_entry,
                 self.output_button,
                 self.threads_scale,
+                self.recursive_check,
                 self.flatten_check,
                 self.keep_original_names_check,
                 self.download_button,
@@ -457,9 +463,21 @@ if tk is not None:
                 return
             output = self.download_output_var.get().strip() or os.getcwd()
             threads = max(1, min(self.max_worker_threads, int(self.download_threads_var.get() or 1)))
+            recursive = bool(self.download_recursive_var.get())
             flatten = bool(self.download_flatten_var.get())
             keep_original_names = bool(self.download_keep_original_names_var.get())
-            self._start_worker("gui.status.downloading", self._download_worker, username, password, urls, output, threads, flatten, keep_original_names)
+            self._start_worker(
+                "gui.status.downloading",
+                self._download_worker,
+                username,
+                password,
+                urls,
+                output,
+                threads,
+                recursive,
+                flatten,
+                keep_original_names,
+            )
 
         def _start_upload(self):
             try:
@@ -475,7 +493,7 @@ if tk is not None:
             threads = max(1, min(self.max_worker_threads, int(self.upload_threads_var.get() or 1)))
             self._start_worker("gui.status.uploading", self._upload_worker, username, password, paths, folder, threads)
 
-        def _download_worker(self, username, password, urls, output, threads, flatten, keep_original_names):
+        def _download_worker(self, username, password, urls, output, threads, recursive, flatten, keep_original_names):
             os.makedirs(output, exist_ok=True)
             downloader = ChomikujDownloader(
                 username,
@@ -484,6 +502,7 @@ if tk is not None:
                 output,
                 password_provider=self.password,
                 status_sink=self,
+                recursive=recursive,
                 flatten=flatten,
                 keep_original_names=keep_original_names,
                 i18n=self.i18n,
