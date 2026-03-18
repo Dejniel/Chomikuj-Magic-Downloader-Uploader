@@ -31,12 +31,25 @@ class TerminalUi:
     def login_password(self):
         return getpass(self.i18n("terminal.prompt.password"))
 
-    def password(self, kind, identifier):
+    def password(self, kind, identifier, owner_name=None, retry=False, allow_skip=False):
         if kind == "account":
             prompt = self.i18n("terminal.prompt.account_password", identifier=identifier)
         else:
             prompt = self.i18n("terminal.prompt.folder_password", identifier=identifier)
-        return getpass(prompt)
+        if retry:
+            with self.lock:
+                print(self.i18n("terminal.password.retry", identifier=identifier), file=sys.stderr)
+        action_prompt = self.i18n(
+            "terminal.prompt.password_action_skip" if allow_skip else "terminal.prompt.password_action"
+        )
+        while True:
+            choice = input(action_prompt).strip().lower()
+            if not choice:
+                return {"action": "submit", "password": getpass(prompt)}
+            if choice in ("c", "cancel", "a", "anuluj"):
+                return {"action": "cancel"}
+            if allow_skip and choice in ("s", "skip", "p", "pomij", "pomin"):
+                return {"action": "skip"}
 
     def error(self, message):
         with self.lock:

@@ -39,6 +39,13 @@ class DownloadSkippedError(ChomikujError):
     pass
 
 
+class PasswordSkippedError(ChomikujError):
+    def __init__(self, kind, identifier):
+        super().__init__(f"Skipped password-protected {kind}: {identifier}")
+        self.kind = kind
+        self.identifier = identifier
+
+
 class ApiRequestError(ChomikujError):
     def __init__(self, status, code=None, message="", body=""):
         super().__init__(message or f"HTTP {status}")

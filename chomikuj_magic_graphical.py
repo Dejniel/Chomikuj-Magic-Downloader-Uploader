@@ -10,14 +10,13 @@ import threading
 
 try:
     import tkinter as tk
-    from tkinter import filedialog, messagebox, simpledialog, ttk
+    from tkinter import filedialog, messagebox, ttk
 except ModuleNotFoundError as exc:
     if exc.name != "tkinter":
         raise
     tk = None
     filedialog = None
     messagebox = None
-    simpledialog = None
     ttk = None
 
 from chomikuj import ChomikujDownloader, ChomikujUploader
@@ -541,14 +540,85 @@ if tk is not None:
                 elif kind == "task":
                     self._update_task(*action[1:])
                 elif kind == "password_prompt":
-                    _, prompt_kind, identifier, event, box = action
+                    _, prompt_kind, identifier, retry, allow_skip, event, box = action
                     if prompt_kind == "account":
                         prompt = self.i18n("terminal.prompt.account_password", identifier=identifier).rstrip()
                     else:
                         prompt = self.i18n("terminal.prompt.folder_password", identifier=identifier).rstrip()
-                    box["value"] = simpledialog.askstring(self.i18n("gui.dialog.password.title"), prompt, show="*", parent=self) or ""
+                    box.update(self._prompt_password_dialog(prompt, retry=retry, allow_skip=allow_skip))
                     event.set()
             self.after(100, self._process_queue)
+
+        def _prompt_password_dialog(self, prompt, retry=False, allow_skip=False):
+            result = {"action": "cancel", "password": ""}
+            dialog = tk.Toplevel(self)
+            dialog.title(self.i18n("gui.dialog.password.title"))
+            dialog.transient(self)
+            dialog.resizable(False, False)
+            dialog.grab_set()
+
+            frame = ttk.Frame(dialog, padding=12)
+            frame.grid(row=0, column=0, sticky="nsew")
+            dialog.columnconfigure(0, weight=1)
+            dialog.rowconfigure(0, weight=1)
+
+            row = 0
+            if retry:
+                ttk.Label(frame, text=self.i18n("gui.dialog.password.retry")).grid(
+                    row=row,
+                    column=0,
+                    columnspan=3,
+                    sticky="w",
+                    pady=(0, 8),
+                )
+                row += 1
+
+            ttk.Label(frame, text=prompt, wraplength=420, justify="left").grid(
+                row=row,
+                column=0,
+                columnspan=3,
+                sticky="w",
+            )
+            row += 1
+
+            password_var = tk.StringVar()
+            entry = ttk.Entry(frame, textvariable=password_var, show="*", width=42)
+            entry.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+            frame.columnconfigure(0, weight=1)
+            row += 1
+
+            def finish(action):
+                result["action"] = action
+                result["password"] = password_var.get() if action == "submit" else ""
+                dialog.destroy()
+
+            button_frame = ttk.Frame(frame)
+            button_frame.grid(row=row, column=0, columnspan=3, sticky="e", pady=(12, 0))
+            ttk.Button(
+                button_frame,
+                text=self.i18n("gui.dialog.password.cancel"),
+                command=lambda: finish("cancel"),
+            ).pack(side="right", padx=(8, 0))
+            if allow_skip:
+                ttk.Button(
+                    button_frame,
+                    text=self.i18n("gui.dialog.password.skip"),
+                    command=lambda: finish("skip"),
+                ).pack(side="right")
+            ttk.Button(
+                button_frame,
+                text=self.i18n("gui.dialog.password.submit"),
+                command=lambda: finish("submit"),
+            ).pack(side="right")
+
+            dialog.protocol("WM_DELETE_WINDOW", lambda: finish("cancel"))
+            dialog.bind("<Return>", lambda _event: finish("submit"))
+            dialog.bind("<Escape>", lambda _event: finish("cancel"))
+            self.update_idletasks()
+            dialog.geometry(f"+{self.winfo_rootx() + 80}+{self.winfo_rooty() + 80}")
+            entry.focus_set()
+            dialog.wait_window()
+            return result
 
         def _task_key(self, kind, path):
             return f"{kind}:{path}"
@@ -603,12 +673,12 @@ if tk is not None:
         def _push(self, action, *payload):
             self.queue.put((action, *payload))
 
-        def password(self, kind, identifier):
+        def password(self, kind, identifier, owner_name=None, retry=False, allow_skip=False):
             event = threading.Event()
             box = {}
-            self._push("password_prompt", kind, identifier, event, box)
+            self._push("password_prompt", kind, identifier, retry, allow_skip, event, box)
             event.wait()
-            return box.get("value", "")
+            return box or {"action": "cancel"}
 
         def download_queued(self, path):
             self._push("task", "download", "queued", path, 0, None, path, None)

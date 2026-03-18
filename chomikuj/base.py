@@ -3,22 +3,24 @@
 import re
 from urllib.parse import unquote_plus, urlsplit
 
-from .common import FILE_ID_RE, ApiRequestError, ChomikujError
+from .common import FILE_ID_RE, ApiRequestError, ChomikujError, PasswordSkippedError
 from .i18n import ensure_i18n
 from .mobile_api import MobileApi
 
 
 class ChomikujBase:
-    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None):
+    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None, allow_password_skip=False):
         self.i18n = ensure_i18n(i18n, language="en")
         self.api = MobileApi(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.account_login()
         self.debug = debug
         self.password_provider = password_provider
+        self.allow_password_skip = bool(allow_password_skip)
         self.owner_cache = {}
         self.folder_cache = {}
         self.account_passwords = {}
         self.folder_passwords = {}
+        self.owner_passwords = {}
 
     def clean(self, value):
         value = re.sub(r"\*([0-9a-fA-F]{2})", r"%\1", str(value))
@@ -32,25 +34,122 @@ class ChomikujBase:
         ext = (entry.get("FileType") or "").strip()
         return f"{name}.{ext}" if ext and not name.lower().endswith("." + ext.lower()) else name
 
-    def account_password(self, owner_name):
-        if owner_name not in self.account_passwords:
-            if not self.password_provider:
-                raise ChomikujError(self.i18n("error.password_required_account", owner_name=owner_name))
-            password = self.password_provider("account", owner_name)
-            if not password:
-                raise ChomikujError(self.i18n("error.password_missing_account", owner_name=owner_name))
-            self.account_passwords[owner_name] = password
-        return self.account_passwords[owner_name]
+    def _owner_key(self, owner_name):
+        return self.clean(owner_name).casefold()
 
-    def folder_password(self, folder_key):
-        if folder_key not in self.folder_passwords:
-            if not self.password_provider:
-                raise ChomikujError(self.i18n("error.password_required_folder", folder_key=folder_key))
-            password = self.password_provider("folder", folder_key)
-            if not password:
-                raise ChomikujError(self.i18n("error.password_missing_folder", folder_key=folder_key))
-            self.folder_passwords[folder_key] = password
-        return self.folder_passwords[folder_key]
+    def _remember_owner_password(self, owner_name, password):
+        if not password:
+            return
+        owner_key = self._owner_key(owner_name)
+        passwords = self.owner_passwords.setdefault(owner_key, [])
+        if password in passwords:
+            passwords.remove(password)
+        passwords.insert(0, password)
+
+    def _password_candidates(self, kind, identifier, owner_name):
+        seen = set()
+        if kind == "account":
+            exact = self.account_passwords.get(owner_name)
+            if exact:
+                seen.add(exact)
+                yield exact
+        else:
+            exact = self.folder_passwords.get(identifier)
+            if exact:
+                seen.add(exact)
+                yield exact
+        for password in self.owner_passwords.get(self._owner_key(owner_name), []):
+            if password and password not in seen:
+                seen.add(password)
+                yield password
+        if kind == "folder":
+            account_password = self.account_passwords.get(owner_name)
+            if account_password and account_password not in seen:
+                yield account_password
+
+    def _prompt_password(self, kind, identifier, owner_name, retry=False):
+        if not self.password_provider:
+            if kind == "account":
+                raise ChomikujError(self.i18n("error.password_required_account", owner_name=owner_name))
+            raise ChomikujError(self.i18n("error.password_required_folder", folder_key=identifier))
+        while True:
+            try:
+                response = self.password_provider(
+                    kind,
+                    identifier,
+                    owner_name=owner_name,
+                    retry=retry,
+                    allow_skip=self.allow_password_skip,
+                )
+            except TypeError:
+                response = self.password_provider(kind, identifier)
+            if isinstance(response, dict):
+                action = str(response.get("action") or "submit").strip().lower()
+                password = response.get("password") or response.get("value") or ""
+            else:
+                action = "submit"
+                password = response or ""
+            if action == "skip":
+                if self.allow_password_skip:
+                    raise PasswordSkippedError(kind, identifier)
+                action = "cancel"
+            if action == "cancel":
+                raise ChomikujError(self.i18n("error.password_cancelled", identifier=identifier))
+            if password:
+                return password
+            retry = True
+
+    def _try_account_password(self, owner, password):
+        try:
+            self.api.account_password_read(owner["id"], password)
+        except ApiRequestError as exc:
+            if exc.status == 401 and exc.code == 2:
+                return False
+            raise
+        self.account_passwords[owner["name"]] = password
+        self._remember_owner_password(owner["name"], password)
+        return True
+
+    def _try_folder_password(self, owner, folder_id, folder_key, password):
+        try:
+            self.api.folders_password(owner["id"], folder_id, password)
+        except ApiRequestError as exc:
+            if exc.status == 401 and exc.code == 12:
+                return False
+            raise
+        self.folder_passwords[folder_key] = password
+        self._remember_owner_password(owner["name"], password)
+        return True
+
+    def _unlock_account(self, owner):
+        owner_name = owner["name"]
+        cached_exact = self.account_passwords.get(owner_name)
+        for password in self._password_candidates("account", owner_name, owner_name):
+            if self._try_account_password(owner, password):
+                return
+        if cached_exact and self.account_passwords.get(owner_name) == cached_exact:
+            self.account_passwords.pop(owner_name, None)
+        retry = False
+        while True:
+            password = self._prompt_password("account", owner_name, owner_name, retry=retry)
+            if self._try_account_password(owner, password):
+                return
+            retry = True
+
+    def _unlock_folder(self, owner, folder_id):
+        folder_key = f"{owner['name']}:{folder_id}"
+        cached_exact = self.folder_passwords.get(folder_key)
+        for password in self._password_candidates("folder", folder_key, owner["name"]):
+            if self._try_folder_password(owner, folder_id, folder_key, password):
+                return
+        if cached_exact and self.folder_passwords.get(folder_key) == cached_exact:
+            self.folder_passwords.pop(folder_key, None)
+        retry = False
+        while True:
+            password = self._prompt_password("folder", folder_key, owner["name"], retry=retry)
+            if self._try_folder_password(owner, folder_id, folder_key, password):
+                return
+            retry = True
 
     def owner_info(self, owner_name):
         key = self.clean(owner_name).casefold()
@@ -113,10 +212,10 @@ class ChomikujBase:
                 payload = self.api.folders_get(account_id, folder_id, page)
             except ApiRequestError as exc:
                 if exc.status == 401 and exc.code == 2:
-                    self.api.account_password_read(owner["id"], self.account_password(owner["name"]))
+                    self._unlock_account(owner)
                     continue
                 if exc.status == 401 and exc.code == 12:
-                    self.api.folders_password(owner["id"], folder_id, self.folder_password(f"{owner['name']}:{folder_id}"))
+                    self._unlock_folder(owner, folder_id)
                     continue
                 raise
             result["Folders"].extend(payload.get("Folders", []))

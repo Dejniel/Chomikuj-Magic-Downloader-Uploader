@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .common import ChomikujError
+from .common import ChomikujError, PasswordSkippedError
 from .download_reader_soap import DownloadReaderSoap
 from .download_reader_v3 import DownloadReaderV3
 from .download_source import DownloadSourceSoap, DownloadSourceV3
@@ -103,6 +103,8 @@ class DownloadPlanner:
 
         try:
             v3_listing = self.v3.list_folder(owner, folder_id)
+        except PasswordSkippedError:
+            return
         except ChomikujError:
             if soap_folder is not None:
                 self._recursive_error(owner["name"], resolved_segments)
@@ -121,6 +123,8 @@ class DownloadPlanner:
                 self._collect_folder_recursive(tasks, owner, "0", [])
                 return tasks
             folder_id, resolved = self.v3.resolve_folder_path(owner, segments)
+        except PasswordSkippedError:
+            return []
         except ChomikujError as exc:
             try:
                 soap_result = self._soap_current(url)

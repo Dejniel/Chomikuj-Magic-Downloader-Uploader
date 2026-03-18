@@ -15,6 +15,7 @@ class DownloadReaderV3(ChomikujBase):
             password_provider=password_provider,
             debug_hook=debug_hook,
             i18n=self.i18n,
+            allow_password_skip=True,
         )
 
     def download_url(self, file_id):
