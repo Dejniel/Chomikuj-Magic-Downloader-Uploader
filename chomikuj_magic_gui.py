@@ -164,7 +164,7 @@ if tk is not None:
             self.download_threads_label.grid(row=1, column=2, sticky="w", **padding)
 
             self.download_flags = ttk.Frame(config)
-            self.download_flags.grid(row=2, column=1, columnspan=2, sticky="w", **padding)
+            self.download_flags.grid(row=2, column=0, columnspan=3, sticky="w", **padding)
 
             self.recursive_check = ttk.Checkbutton(self.download_flags, variable=self.download_recursive_var)
             self.recursive_check.pack(side="left")
