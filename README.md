@@ -2,7 +2,7 @@
 
 Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases)  for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
-Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using Chomikuj's mobile JSON API with old SOAP/web fallback where it is still needed
+Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed
 
 Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem i [wesprzyj moją pracę](https://buymeacoffee.com/dejniel)
 
