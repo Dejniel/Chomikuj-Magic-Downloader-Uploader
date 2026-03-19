@@ -1,6 +1,6 @@
 # Chomikuj Magic
 
-Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases)  for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
+Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases) for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
 Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed
 
@@ -16,11 +16,11 @@ Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic
 # Available features
 
 - login to Chomikuj
-- download single files and whole folders
+- download single files and folders, optionally with subfolders
 - upload local files to your own account
 - resume downloads through temporary `.part` files
-- chunked upload, resume possible
-- wrapper for other API functions not yet used
+- chunked upload with resume
+- wrappers for additional API endpoints used by the app
 
 # Requirements
 
@@ -47,7 +47,7 @@ Examples below show how to run the source files from the project directory.
 
 ## Graphical user interface
 
-You can download, upload with one button, choose a file, and work:
+Choose a file, click one button to download or upload it, and everything just works:
 
 ```bash
 python3 chomikuj_magic_gui.py
@@ -61,10 +61,16 @@ Download a single file:
 python3 chomikuj_magic_command_line.py download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3"
 ```
 
-Download a whole folder:
+Download files directly in a folder:
 
 ```bash
 python3 chomikuj_magic_command_line.py download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka"
+```
+
+Download a folder recursively with subfolders:
+
+```bash
+python3 chomikuj_magic_command_line.py download -r "https://chomikuj.pl/Emaus/materiały+audio/konferencje"
 ```
 
 Upload a file to the root directory:
