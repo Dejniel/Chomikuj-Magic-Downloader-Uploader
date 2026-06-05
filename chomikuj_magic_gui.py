@@ -20,8 +20,9 @@ except ModuleNotFoundError as exc:
     ttk = None
 
 from chomikuj import DownloadManager, UploadManager
-from chomikuj.common_env import env_language, load_default_env, resolve_default_env_path, save_env_values
+from chomikuj.common_env import ENV_LOGIN, ENV_PASSWORD, env_language, load_default_env
 from chomikuj.common_runtime import ChomikujError
+from chomikuj.config_store import ConfigStore
 from chomikuj.i18n import Translator
 
 
@@ -29,20 +30,22 @@ if tk is not None:
     class ChomikujGui(tk.Tk):
         def __init__(self, script_path):
             super().__init__()
+            self.config_store = ConfigStore()
             env = load_default_env(script_path)
-            self.env_path = resolve_default_env_path(script_path)
-            self.i18n = Translator(env_language(env))
+            saved_login = self.config_store.login()
+            self.i18n = Translator(self.config_store.language() or env_language(env))
 
             self.queue = queue.Queue()
             self.busy = False
             self.row_ids = {}
             self.row_data = {}
-            self.env_save_job = None
+            self.config_save_job = None
             self.max_worker_threads = max(1, (os.cpu_count() or 1) * 2)
             self.status_state = ("key", "gui.status.idle", {})
 
-            self.username_var = tk.StringVar(value=env.get("USERNAME", ""))
-            self.password_var = tk.StringVar(value=env.get("PASSWORD", ""))
+            self.username_var = tk.StringVar(value=saved_login.get("username") or env.get(ENV_LOGIN, ""))
+            self.password_var = tk.StringVar(value=saved_login.get("password") or env.get(ENV_PASSWORD, ""))
+            self.remember_passwords_var = tk.BooleanVar(value=True)
             self.download_output_var = tk.StringVar(value=os.getcwd())
             self.download_threads_var = tk.IntVar(value=min(5, self.max_worker_threads))
             self.download_threads_label_var = tk.StringVar()
@@ -64,8 +67,9 @@ if tk is not None:
             self._apply_texts()
             self._refresh_status()
 
-            self.username_var.trace_add("write", self._schedule_env_save)
-            self.password_var.trace_add("write", self._schedule_env_save)
+            self.username_var.trace_add("write", self._schedule_config_save)
+            self.password_var.trace_add("write", self._schedule_config_save)
+            self.remember_passwords_var.trace_add("write", self._schedule_config_save)
             self.download_threads_var.trace_add("write", self._refresh_download_threads_label)
             self.upload_threads_var.trace_add("write", self._refresh_upload_threads_label)
             self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -93,6 +97,9 @@ if tk is not None:
 
             self.language_button = ttk.Button(self.header_frame, text="PL/EN", command=self._toggle_language)
             self.language_button.grid(row=0, column=4, sticky="e", padx=(12, 10), pady=6)
+
+            self.remember_passwords_check = ttk.Checkbutton(self.header_frame, variable=self.remember_passwords_var)
+            self.remember_passwords_check.grid(row=1, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6))
 
             self.notebook = ttk.Notebook(self)
             self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -247,6 +254,7 @@ if tk is not None:
             self.title(self.i18n("app.title"))
             self.username_label.configure(text=self.i18n("gui.username"))
             self.password_label.configure(text=self.i18n("gui.password"))
+            self.remember_passwords_check.configure(text=self.i18n("gui.remember_passwords"))
             self.notebook.tab(self.download_tab, text=self.i18n("kind.download"))
             self.notebook.tab(self.upload_tab, text=self.i18n("kind.upload"))
             self.activity_frame.configure(text=self.i18n("gui.activity"))
@@ -315,35 +323,26 @@ if tk is not None:
             self.i18n.set_language(language)
             self._apply_texts()
             try:
-                save_env_values(
-                    self.env_path,
-                    {
-                        "USERNAME": self.username_var.get().strip(),
-                        "PASSWORD": self.password_var.get(),
-                        "LANGUAGE": self.i18n.language,
-                    },
-                )
+                self.config_store.set_language(self.i18n.language)
             except OSError as exc:
-                self._set_status_text(self.i18n("gui.error.save_env", error=exc))
+                self._set_status_text(self.i18n("gui.error.save_config", error=exc))
 
-        def _schedule_env_save(self, *_):
-            if self.env_save_job is not None:
-                self.after_cancel(self.env_save_job)
-            self.env_save_job = self.after(120, self._save_credentials_to_env)
+        def _schedule_config_save(self, *_):
+            if self.config_save_job is not None:
+                self.after_cancel(self.config_save_job)
+            self.config_save_job = self.after(120, self._save_credentials_to_config)
 
-        def _save_credentials_to_env(self):
-            self.env_save_job = None
+        def _save_credentials_to_config(self):
+            self.config_save_job = None
             try:
-                save_env_values(
-                    self.env_path,
-                    {
-                        "USERNAME": self.username_var.get().strip(),
-                        "PASSWORD": self.password_var.get(),
-                        "LANGUAGE": self.i18n.language,
-                    },
-                )
+                self.config_store.set_language(self.i18n.language)
+                self.config_store.set_login(self.username_var.get().strip())
+                if self.remember_passwords_var.get():
+                    self.config_store.set_login(self.username_var.get().strip(), self.password_var.get())
+                else:
+                    self.config_store.clear_login_password()
             except OSError as exc:
-                self._set_status_text(self.i18n("gui.error.save_env", error=exc))
+                self._set_status_text(self.i18n("gui.error.save_config", error=exc))
 
         def _refresh_download_threads_label(self, *_):
             value = max(1, min(self.max_worker_threads, int(self.download_threads_var.get() or 1)))
@@ -391,9 +390,9 @@ if tk is not None:
         def _on_close(self):
             if self.busy and not messagebox.askyesno(self.i18n("gui.dialog.close.title"), self.i18n("gui.dialog.close.message")):
                 return
-            if self.env_save_job is not None:
-                self.after_cancel(self.env_save_job)
-                self._save_credentials_to_env()
+            if self.config_save_job is not None:
+                self.after_cancel(self.config_save_job)
+                self._save_credentials_to_config()
             self.destroy()
 
         def _set_busy(self, busy):
@@ -402,6 +401,7 @@ if tk is not None:
             for widget in (
                 self.username_entry,
                 self.password_entry,
+                self.remember_passwords_check,
                 self.language_button,
                 self.output_entry,
                 self.output_button,
@@ -450,6 +450,11 @@ if tk is not None:
             if not password:
                 raise ChomikujError(self.i18n("gui.error.missing_password"))
             return username, password
+
+        def _operation_config_store(self):
+            if self.remember_passwords_var.get():
+                return self.config_store
+            return ConfigStore.disabled()
 
         def _start_download(self):
             try:
@@ -506,6 +511,7 @@ if tk is not None:
                 flatten=flatten,
                 keep_original_names=keep_original_names,
                 i18n=self.i18n,
+                config_store=self._operation_config_store(),
             )
             for url in urls:
                 downloader.handle_url(url)
@@ -519,6 +525,7 @@ if tk is not None:
                 password_provider=self.password,
                 status_sink=self,
                 i18n=self.i18n,
+                config_store=self._operation_config_store(),
             )
             uploader.upload_files(paths, folder=folder)
 

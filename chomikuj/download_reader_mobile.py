@@ -6,7 +6,7 @@ from .i18n import ensure_i18n
 
 
 class DownloadReaderMobile(BaseAccountFolder):
-    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None):
+    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None, config_store=None):
         self.i18n = ensure_i18n(i18n, language="en")
         super().__init__(
             username,
@@ -16,6 +16,7 @@ class DownloadReaderMobile(BaseAccountFolder):
             debug_hook=debug_hook,
             i18n=self.i18n,
             allow_password_skip=True,
+            config_store=config_store,
         )
 
     def download_url(self, file_id):

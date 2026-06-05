@@ -8,7 +8,7 @@ from .i18n import ensure_i18n
 
 
 class DownloadPlanner:
-    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, flatten=False, recursive=False, i18n=None):
+    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, flatten=False, recursive=False, i18n=None, config_store=None):
         self.username = username
         self.password = password
         self.debug = debug
@@ -17,6 +17,7 @@ class DownloadPlanner:
         self.flatten = bool(flatten)
         self.recursive = bool(recursive)
         self.i18n = ensure_i18n(i18n, language="en")
+        self.config_store = config_store
         self._reader_mobile = None
         self._reader_soap = None
 
@@ -42,6 +43,7 @@ class DownloadPlanner:
                 password_provider=self.password_provider,
                 debug_hook=self.debug_hook,
                 i18n=self.i18n,
+                config_store=self.config_store,
             )
         return self._reader_mobile
 
@@ -71,6 +73,21 @@ class DownloadPlanner:
             "is_exact_folder": result["is_exact_folder"],
         }
 
+    def _read_soap_folder(self, owner, folder_id, resolved_segments):
+        try:
+            return self.soap.read_folder(owner, folder_id, resolved_segments)
+        except ChomikujError:
+            return None
+
+    def _soap_fallback_source(self, soap_folder, file_id, owner_name, resolved_segments):
+        if not soap_folder or not file_id:
+            return None
+        request_path = self.soap.folder_request_path(owner_name, resolved_segments)
+        for entry in soap_folder.get("files", []):
+            if str(entry.get("id")) == str(file_id):
+                return DownloadSourceSoap(self.soap, entry, request_path)
+        return None
+
     def _folder_tasks(self, owner, resolved_segments, mobile_listing, soap_folder):
         rel_dir = self._rel_dir(owner["name"], resolved_segments)
         fallback_by_id = {}
@@ -96,11 +113,7 @@ class DownloadPlanner:
         return tasks
 
     def _collect_folder_recursive(self, tasks, owner, folder_id, resolved_segments):
-        soap_folder = None
-        try:
-            soap_folder = self.soap.read_folder(owner, folder_id, resolved_segments)
-        except ChomikujError:
-            soap_folder = None
+        soap_folder = self._read_soap_folder(owner, folder_id, resolved_segments)
 
         try:
             mobile_listing = self.mobile.list_folder(owner, folder_id)
@@ -149,7 +162,51 @@ class DownloadPlanner:
             self._recursive_error(soap_result["folder"]["owner_name"], self.soap.folder_segments(soap_result["folder"]))
         raise ChomikujError(self.i18n("error.download_unresolved_url", url=url))
 
+    def _collect_mobile_current(self, url):
+        owner_name, segments = self.mobile.split_url(url)
+        owner = self.mobile.owner_info(owner_name)
+        if not segments:
+            mobile_listing = self.mobile.list_folder(owner, "0")
+            soap_folder = self._read_soap_folder(owner, "0", [])
+            return self._folder_tasks(owner, [], mobile_listing, soap_folder)
+
+        folder_id, resolved = self.mobile.resolve_folder_path(owner, segments)
+        if folder_id is not None:
+            mobile_listing = self.mobile.list_folder(owner, folder_id)
+            soap_folder = self._read_soap_folder(owner, folder_id, resolved)
+            return self._folder_tasks(owner, resolved, mobile_listing, soap_folder)
+
+        parent_id, parent_resolved = self.mobile.resolve_folder_path(owner, segments[:-1])
+        if parent_id is None:
+            raise ChomikujError(self.i18n("error.download_unresolved_url", url=url))
+        entry = self.mobile.find_file_in_folder(owner, parent_id, segments[-1])
+        if entry is None:
+            raise ChomikujError(self.i18n("error.download_unresolved_url", url=url))
+
+        soap_folder = self._read_soap_folder(owner, parent_id, parent_resolved)
+        fallback_source = self._soap_fallback_source(soap_folder, entry.get("FileId"), owner["name"], parent_resolved)
+        rel_dir = self._rel_dir(owner["name"], parent_resolved)
+        return [(self.mobile.file_name(entry), DownloadSourceMobile(self.mobile, entry, fallback_source=fallback_source), rel_dir)]
+
+    def _collect_current(self, url):
+        soap_result = None
+        try:
+            soap_result = self._soap_current(url)
+            if soap_result["tasks"]:
+                return soap_result["tasks"]
+        except ChomikujError:
+            pass
+
+        try:
+            return self._collect_mobile_current(url)
+        except PasswordSkippedError:
+            return []
+        except ChomikujError:
+            if soap_result is not None and soap_result["tasks"]:
+                return soap_result["tasks"]
+            raise
+
     def collect(self, url):
         if not self.recursive:
-            return self._soap_current(url)["tasks"]
+            return self._collect_current(url)
         return self._collect_recursive(url)

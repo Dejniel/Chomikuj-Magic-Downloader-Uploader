@@ -9,8 +9,8 @@ from .upload_worker import UploadWorker
 
 
 class UploadManager(BaseAccountFolder):
-    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None):
-        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n)
+    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None, config_store=None):
+        super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n, config_store=config_store)
         self.max_threads = max(1, int(max_threads or 1))
         self.status_sink = status_sink
         self.semaphore = threading.Semaphore(self.max_threads)

@@ -5,8 +5,9 @@ import os
 import sys
 
 from chomikuj import DownloadManager, UploadManager
-from chomikuj.common_env import load_default_env
+from chomikuj.common_env import ENV_LOGIN, ENV_PASSWORD, load_default_env
 from chomikuj.common_runtime import DEBUG, ChomikujError
+from chomikuj.config_store import ConfigStore
 from chomikuj.i18n import get_i18n
 from chomikuj.ui_terminal import UiTerminal
 
@@ -61,9 +62,11 @@ def run_cli(argv, script_path):
         live=not getattr(args, "debug", False),
         i18n=i18n,
     )
+    config_store = ConfigStore()
+    saved_login = config_store.login()
     env = load_default_env(script_path)
-    username = env.get("USERNAME", "") or ui.login()
-    password = env.get("PASSWORD", "") or ui.login_password()
+    username = saved_login.get("username") or env.get(ENV_LOGIN, "") or ui.login()
+    password = saved_login.get("password") or env.get(ENV_PASSWORD, "") or ui.login_password()
     error = None
     try:
         if args.command == "download":
@@ -81,6 +84,7 @@ def run_cli(argv, script_path):
                 flatten=args.flatten,
                 keep_original_names=args.keep_original_names,
                 i18n=i18n,
+                config_store=config_store,
             )
             for url in args.urls:
                 downloader.handle_url(url)
@@ -95,6 +99,7 @@ def run_cli(argv, script_path):
                 status_sink=ui,
                 debug_hook=ui.debug,
                 i18n=i18n,
+                config_store=config_store,
             )
             uploader.upload_files(args.paths, folder=args.folder)
     except KeyboardInterrupt:
@@ -106,6 +111,7 @@ def run_cli(argv, script_path):
     if error:
         ui.error(error)
         sys.exit(1)
+    config_store.set_login(username, password)
 
 
 def main(argv=None):

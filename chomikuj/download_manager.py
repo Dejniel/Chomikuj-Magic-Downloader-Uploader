@@ -11,7 +11,7 @@ from .download_source import DownloadSourceDirect
 
 
 class DownloadManager:
-    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, keep_original_names=False, recursive=False, i18n=None):
+    def __init__(self, username, password, max_threads, output_dir, debug=False, password_provider=None, status_sink=None, debug_hook=None, flatten=False, keep_original_names=False, recursive=False, i18n=None, config_store=None):
         self.max_threads = int(max_threads)
         self.output_dir = output_dir
         self.status_sink = status_sink
@@ -27,6 +27,7 @@ class DownloadManager:
             flatten=self.flatten,
             recursive=self.recursive,
             i18n=i18n,
+            config_store=config_store,
         )
         self.i18n = self.planner.i18n
         self.semaphore = threading.Semaphore(self.max_threads)

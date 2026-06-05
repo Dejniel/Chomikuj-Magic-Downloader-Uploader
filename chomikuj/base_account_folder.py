@@ -3,19 +3,21 @@
 import re
 from urllib.parse import unquote_plus, urlsplit
 
+from .config_store import ConfigStore
 from .common_runtime import FILE_ID_RE, ApiRequestError, ChomikujError, PasswordSkippedError
 from .i18n import ensure_i18n
 from .api_mobile import ApiMobile
 
 
 class BaseAccountFolder:
-    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None, allow_password_skip=False):
+    def __init__(self, username, password, debug=False, password_provider=None, debug_hook=None, i18n=None, allow_password_skip=False, config_store=None):
         self.i18n = ensure_i18n(i18n, language="en")
         self.api = ApiMobile(username, password, debug=debug, debug_hook=debug_hook, i18n=self.i18n)
         self.api.account_login()
         self.debug = debug
         self.password_provider = password_provider
         self.allow_password_skip = bool(allow_password_skip)
+        self.config_store = config_store or ConfigStore()
         self.owner_cache = {}
         self.folder_cache = {}
         self.account_passwords = {}
@@ -45,25 +47,35 @@ class BaseAccountFolder:
         if password in passwords:
             passwords.remove(password)
         passwords.insert(0, password)
+        self.config_store.set_owner_password(owner_key, password)
 
-    def _password_candidates(self, kind, identifier, owner_name):
+    def _folder_password_key(self, owner_name, folder_id):
+        return f"{self._owner_key(owner_name)}:{folder_id}"
+
+    def _password_candidates(self, kind, owner_name, folder_id=None):
+        owner_key = self._owner_key(owner_name)
         seen = set()
         if kind == "account":
-            exact = self.account_passwords.get(owner_name)
+            exact = self.account_passwords.get(owner_key) or self.config_store.account_password(owner_key)
             if exact:
                 seen.add(exact)
                 yield exact
         else:
-            exact = self.folder_passwords.get(identifier)
+            folder_key = self._folder_password_key(owner_name, folder_id)
+            exact = self.folder_passwords.get(folder_key) or self.config_store.folder_password(owner_key, folder_id)
             if exact:
                 seen.add(exact)
                 yield exact
-        for password in self.owner_passwords.get(self._owner_key(owner_name), []):
+        for password in self.owner_passwords.get(owner_key, []):
             if password and password not in seen:
                 seen.add(password)
                 yield password
+        owner_password = self.config_store.owner_password(owner_key)
+        if owner_password and owner_password not in seen:
+            seen.add(owner_password)
+            yield owner_password
         if kind == "folder":
-            account_password = self.account_passwords.get(owner_name)
+            account_password = self.account_passwords.get(owner_key) or self.config_store.account_password(owner_key)
             if account_password and account_password not in seen:
                 yield account_password
 
@@ -106,7 +118,9 @@ class BaseAccountFolder:
             if exc.status == 401 and exc.code == 2:
                 return False
             raise
-        self.account_passwords[owner["name"]] = password
+        owner_key = self._owner_key(owner["name"])
+        self.account_passwords[owner_key] = password
+        self.config_store.set_account_password(owner_key, password)
         self._remember_owner_password(owner["name"], password)
         return True
 
@@ -117,18 +131,22 @@ class BaseAccountFolder:
             if exc.status == 401 and exc.code == 12:
                 return False
             raise
-        self.folder_passwords[folder_key] = password
+        owner_key = self._owner_key(owner["name"])
+        self.folder_passwords[self._folder_password_key(owner["name"], folder_id)] = password
+        self.config_store.set_folder_password(owner_key, folder_id, password)
         self._remember_owner_password(owner["name"], password)
         return True
 
     def _unlock_account(self, owner):
         owner_name = owner["name"]
-        cached_exact = self.account_passwords.get(owner_name)
-        for password in self._password_candidates("account", owner_name, owner_name):
+        owner_key = self._owner_key(owner_name)
+        cached_exact = self.account_passwords.get(owner_key) or self.config_store.account_password(owner_key)
+        for password in self._password_candidates("account", owner_name):
             if self._try_account_password(owner, password):
                 return
-        if cached_exact and self.account_passwords.get(owner_name) == cached_exact:
-            self.account_passwords.pop(owner_name, None)
+        if cached_exact:
+            self.account_passwords.pop(owner_key, None)
+            self.config_store.forget_account_password(owner_key)
         retry = False
         while True:
             password = self._prompt_password("account", owner_name, owner_name, retry=retry)
@@ -138,12 +156,15 @@ class BaseAccountFolder:
 
     def _unlock_folder(self, owner, folder_id):
         folder_key = f"{owner['name']}:{folder_id}"
-        cached_exact = self.folder_passwords.get(folder_key)
-        for password in self._password_candidates("folder", folder_key, owner["name"]):
+        owner_key = self._owner_key(owner["name"])
+        password_key = self._folder_password_key(owner["name"], folder_id)
+        cached_exact = self.folder_passwords.get(password_key) or self.config_store.folder_password(owner_key, folder_id)
+        for password in self._password_candidates("folder", owner["name"], folder_id=folder_id):
             if self._try_folder_password(owner, folder_id, folder_key, password):
                 return
-        if cached_exact and self.folder_passwords.get(folder_key) == cached_exact:
-            self.folder_passwords.pop(folder_key, None)
+        if cached_exact:
+            self.folder_passwords.pop(password_key, None)
+            self.config_store.forget_folder_password(owner_key, folder_id)
         retry = False
         while True:
             password = self._prompt_password("folder", folder_key, owner["name"], retry=retry)

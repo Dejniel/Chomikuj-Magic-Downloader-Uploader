@@ -2,7 +2,7 @@
 
 Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases) for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
-Now you can upload and download chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed
+Now you can upload and download from chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed
 
 Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem i [wesprzyj moją pracę](https://buymeacoffee.com/dejniel)
 
@@ -31,10 +31,10 @@ or you can build the project yourself.
 
 - Python 3.8+
 - pip install -r requirements.txt
-- (optional) if you do not want to enter the password every time, put credentials in `.env` in the project directory:
+- (optional) for development or automation, you can still provide read-only fallback credentials in `.env` or environment variables with the same names:
   ```env
-  USERNAME=your_login
-  PASSWORD=your_password
+  CHOMIKUJ_LOGIN=your_login
+  CHOMIKUJ_PASSWORD=your_password
   ```
 - (optional, GUI only) if `tkinter` is missing, install it from your system packages:
   Linux (Ubuntu/Debian): `sudo apt install python3-tk`
@@ -107,4 +107,5 @@ python3 chomikuj_magic_command_line.py --help
 
 - Theoretically, I support Windows, macOS, and Linux, but I test builds only on Ubuntu-like systems—if you need to run this elsewhere, please report issues or submit a fix :P
 - This project is open source and may use non-public APIs - there is no guarantee of anything. Charges may be applied while using it, so do not use it if you are not sure what you are doing. 
+- Remembered passwords are stored locally in a plain INI config file, not in an encrypted system keychain.
 - **THE PROGRAM NEVER SHOWS A WARNING ABOUT THE SIZE OF DOWNLOADED FOLDERS**
