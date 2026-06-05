@@ -51,6 +51,7 @@ if tk is not None:
             self.download_threads_label_var = tk.StringVar()
             self.upload_threads_var = tk.IntVar(value=min(2, self.max_worker_threads))
             self.upload_threads_label_var = tk.StringVar()
+            self.upload_force_existing_var = tk.BooleanVar(value=False)
             self.download_recursive_var = tk.BooleanVar(value=False)
             self.download_flatten_var = tk.BooleanVar(value=False)
             self.download_keep_original_names_var = tk.BooleanVar(value=False)
@@ -82,24 +83,24 @@ if tk is not None:
 
             self.header_frame = ttk.Frame(self)
             self.header_frame.pack(fill="x", padx=10, pady=10)
-            self.header_frame.columnconfigure(1, weight=1)
-            self.header_frame.columnconfigure(3, weight=1)
+            self.header_frame.columnconfigure(1, weight=1, uniform="login")
+            self.header_frame.columnconfigure(3, weight=1, uniform="login")
 
             self.username_label = ttk.Label(self.header_frame)
             self.username_label.grid(row=0, column=0, sticky="w", **padding)
-            self.username_entry = ttk.Entry(self.header_frame, textvariable=self.username_var)
+            self.username_entry = ttk.Entry(self.header_frame, textvariable=self.username_var, width=18)
             self.username_entry.grid(row=0, column=1, sticky="ew", **padding)
 
             self.password_label = ttk.Label(self.header_frame)
             self.password_label.grid(row=0, column=2, sticky="w", **padding)
-            self.password_entry = ttk.Entry(self.header_frame, textvariable=self.password_var, show="*")
+            self.password_entry = ttk.Entry(self.header_frame, textvariable=self.password_var, show="*", width=18)
             self.password_entry.grid(row=0, column=3, sticky="ew", **padding)
 
-            self.language_button = ttk.Button(self.header_frame, text="PL/EN", command=self._toggle_language)
-            self.language_button.grid(row=0, column=4, sticky="e", padx=(12, 10), pady=6)
-
             self.remember_passwords_check = ttk.Checkbutton(self.header_frame, variable=self.remember_passwords_var)
-            self.remember_passwords_check.grid(row=1, column=0, columnspan=5, sticky="w", padx=10, pady=(0, 6))
+            self.remember_passwords_check.grid(row=0, column=4, sticky="w", padx=(12, 4), pady=6)
+
+            self.language_button = ttk.Button(self.header_frame, text="PL/EN", command=self._toggle_language)
+            self.language_button.grid(row=0, column=5, sticky="e", padx=(4, 10), pady=6)
 
             self.notebook = ttk.Notebook(self)
             self.notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -249,6 +250,8 @@ if tk is not None:
             self.upload_clear_button.pack(side="left", padx=(6, 0))
             self.upload_button = ttk.Button(actions, command=self._start_upload)
             self.upload_button.pack(side="right")
+            self.upload_force_existing_check = ttk.Checkbutton(actions, variable=self.upload_force_existing_var)
+            self.upload_force_existing_check.pack(side="right", padx=(0, 12))
 
         def _apply_texts(self):
             self.title(self.i18n("app.title"))
@@ -274,6 +277,7 @@ if tk is not None:
             self.download_button.configure(text=self.i18n("gui.download.start"))
             self.remote_folder_label.configure(text=self.i18n("gui.upload.remote_folder"))
             self.upload_workers_label.configure(text=self.i18n("gui.workers"))
+            self.upload_force_existing_check.configure(text=self.i18n("gui.upload.force_existing"))
             self.paths_frame.configure(text=self.i18n("gui.upload.paths"))
             self.add_files_button.configure(text=self.i18n("gui.upload.add_files"))
             self.add_folder_button.configure(text=self.i18n("gui.upload.add_folder"))
@@ -413,6 +417,7 @@ if tk is not None:
                 self.download_clear_button,
                 self.remote_folder_entry,
                 self.upload_threads_scale,
+                self.upload_force_existing_check,
                 self.add_files_button,
                 self.add_folder_button,
                 self.upload_button,
@@ -496,7 +501,8 @@ if tk is not None:
                 return
             folder = self.upload_folder_var.get().strip()
             threads = max(1, min(self.max_worker_threads, int(self.upload_threads_var.get() or 1)))
-            self._start_worker("gui.status.uploading", self._upload_worker, username, password, paths, folder, threads)
+            force_existing = bool(self.upload_force_existing_var.get())
+            self._start_worker("gui.status.uploading", self._upload_worker, username, password, paths, folder, threads, force_existing)
 
         def _download_worker(self, username, password, urls, output, threads, recursive, flatten, keep_original_names):
             os.makedirs(output, exist_ok=True)
@@ -517,7 +523,7 @@ if tk is not None:
                 downloader.handle_url(url)
             downloader.wait()
 
-        def _upload_worker(self, username, password, paths, folder, threads):
+        def _upload_worker(self, username, password, paths, folder, threads, force_existing):
             uploader = UploadManager(
                 username,
                 password,
@@ -526,6 +532,7 @@ if tk is not None:
                 status_sink=self,
                 i18n=self.i18n,
                 config_store=self._operation_config_store(),
+                force_upload_existing=force_existing,
             )
             uploader.upload_files(paths, folder=folder)
 
@@ -714,6 +721,9 @@ if tk is not None:
 
         def upload_finished(self, path, target, total):
             self._push("task", "upload", "finished", path, total, total, target, None)
+
+        def upload_skipped(self, path, target):
+            self._push("task", "upload", "skipped", path, 0, None, target, None)
 
         def upload_failed(self, path, error, target):
             self._push("task", "upload", "failed", path, 0, None, target, str(error))

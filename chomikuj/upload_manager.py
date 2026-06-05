@@ -9,10 +9,11 @@ from .upload_worker import UploadWorker
 
 
 class UploadManager(BaseAccountFolder):
-    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None, config_store=None):
+    def __init__(self, username, password, max_threads=2, debug=False, password_provider=None, status_sink=None, debug_hook=None, i18n=None, config_store=None, force_upload_existing=False):
         super().__init__(username, password, debug=debug, password_provider=password_provider, debug_hook=debug_hook, i18n=i18n, config_store=config_store)
         self.max_threads = max(1, int(max_threads or 1))
         self.status_sink = status_sink
+        self.force_upload_existing = bool(force_upload_existing)
         self.semaphore = threading.Semaphore(self.max_threads)
         self.threads = []
         self.pre_errors = []
@@ -77,6 +78,24 @@ class UploadManager(BaseAccountFolder):
         self.pre_errors.append((local_path, exc))
         self._emit("upload_failed", local_path, exc, target)
 
+    def _remote_file_keys(self, owner, folder_id):
+        listing = self.list_folder(owner, folder_id)
+        keys = set()
+        for entry in listing.get("Files", []):
+            for name in (self.file_name(entry), entry.get("FileName", "")):
+                if name:
+                    keys.add(self.clean(name).casefold())
+        return keys
+
+    def _should_skip_existing(self, local_path, owner, folder_id, target):
+        if self.force_upload_existing:
+            return False
+        file_name = os.path.basename(local_path)
+        if self.clean(file_name).casefold() not in self._remote_file_keys(owner, folder_id):
+            return False
+        self._emit("upload_skipped", os.path.abspath(local_path), target)
+        return True
+
     def _queue_file(self, local_path, folder_id, target):
         worker = UploadWorker(
             self.semaphore,
@@ -101,16 +120,18 @@ class UploadManager(BaseAccountFolder):
             raise ChomikujError(self.i18n("error.upload_not_directory", path=local_dir))
         local_name = os.path.basename(os.path.normpath(local_dir))
         remote_folder_id, remote_resolved = self.ensure_remote_folder_path(owner, resolved + [local_name])
+        target = "/".join(remote_resolved) if remote_resolved else "/"
         entries = sorted(os.listdir(local_dir), key=str.casefold)
         for entry in entries:
             local_entry = os.path.join(local_dir, entry)
             if os.path.isfile(local_entry):
-                tasks.append((os.path.abspath(local_entry), str(remote_folder_id), "/".join(remote_resolved) if remote_resolved else "/"))
+                if not self._should_skip_existing(local_entry, owner, remote_folder_id, target):
+                    tasks.append((os.path.abspath(local_entry), str(remote_folder_id), target))
             elif os.path.isdir(local_entry):
                 try:
                     self._collect_directory_tasks(local_entry, owner, remote_folder_id, remote_resolved, tasks)
                 except ChomikujError as exc:
-                    self._record_pre_error(local_entry, exc, "/".join(remote_resolved) if remote_resolved else "/")
+                    self._record_pre_error(local_entry, exc, target)
 
     def _collect_tasks(self, paths, folder):
         owner, folder_id, resolved = self.resolve_target_folder(folder)
@@ -119,7 +140,8 @@ class UploadManager(BaseAccountFolder):
             local_path = os.path.abspath(path)
             target = "/".join(resolved) if resolved else "/"
             if os.path.isfile(local_path):
-                tasks.append((local_path, str(folder_id), target))
+                if not self._should_skip_existing(local_path, owner, folder_id, target):
+                    tasks.append((local_path, str(folder_id), target))
                 continue
             if os.path.isdir(local_path):
                 try:

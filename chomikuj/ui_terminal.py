@@ -167,6 +167,16 @@ class UiTerminal:
                 print(self.i18n("terminal.tag.done"), path)
             self._render(force=True)
 
+    def upload_skipped(self, path, target):
+        with self.lock:
+            self.upload_states[path] = {
+                "status": "skipped",
+                "target": target,
+            }
+            if self.plain:
+                print(self.i18n("terminal.tag.skipped"), path)
+            self._render(force=True)
+
     def upload_failed(self, path, error, target):
         with self.lock:
             self.upload_states[path] = {
@@ -218,7 +228,7 @@ class UiTerminal:
         lines = []
         for index, (path, state) in enumerate(sorted(self.upload_states.items()), start=1):
             status = state.get("status")
-            if status not in ("running", "error"):
+            if status not in ("running", "error", "skipped"):
                 continue
             uploaded = state.get("uploaded") or 0
             total = state.get("total")
@@ -228,6 +238,8 @@ class UiTerminal:
             suffix = f" -> {state.get('target')}"
             if status == "error":
                 lines.append(f"[U{index}] {self.i18n('terminal.tag.failed')} {self._basename(path)}{suffix}: {state.get('error')}")
+            elif status == "skipped":
+                lines.append(f"[U{index}] {self.i18n('terminal.tag.skipped')} {self._basename(path)}{suffix}")
             else:
                 lines.append(f"[U{index}] {percent} {bar} {stats} {self._basename(path)}{suffix}")
         return lines

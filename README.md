@@ -18,6 +18,7 @@ Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic
 - login to Chomikuj
 - download single files and folders, optionally with subfolders
 - upload local files to your own account
+- skip files that already exist in the target upload folder by default
 - resume downloads through temporary `.part` files
 - chunked upload with resume
 - wrappers for additional API endpoints used by the app
@@ -83,6 +84,12 @@ Upload a local folder recursively:
 
 ```bash
 python3 chomikuj_magic_command_line.py upload ./my_folder
+```
+
+Force uploading files even when the target folder already contains the same file names:
+
+```bash
+python3 chomikuj_magic_command_line.py upload --force-upload-existing ./my_folder
 ```
 
 Upload to a selected folder on your account:

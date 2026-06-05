@@ -45,6 +45,7 @@ def build_parser(i18n):
     upload.add_argument("paths", nargs="+", help=i18n("cli.upload.paths"))
     upload.add_argument("--folder", default="", help=i18n("cli.upload.folder"))
     upload.add_argument("-t", "--threads", type=int, default=2, help=i18n("cli.upload.threads"))
+    upload.add_argument("--force-upload-existing", action="store_true", help=i18n("cli.upload.force_existing"))
     upload.add_argument("-v", "--debug", action="store_true", help=i18n("cli.debug"))
     return parser
 
@@ -100,6 +101,7 @@ def run_cli(argv, script_path):
                 debug_hook=ui.debug,
                 i18n=i18n,
                 config_store=config_store,
+                force_upload_existing=args.force_upload_existing,
             )
             uploader.upload_files(args.paths, folder=args.folder)
     except KeyboardInterrupt:
