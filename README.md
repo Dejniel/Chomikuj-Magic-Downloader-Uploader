@@ -6,7 +6,7 @@ Now you can upload and download from chomikuj.pl on **Windows, Linux, and macOS*
 
 Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem i [wesprzyj moją pracę](https://buymeacoffee.com/dejniel)
 
-![Chomikuj Magic Downloader Uploader LOGO Hamster](banner.png)
+![Chomikuj Magic Downloader Uploader LOGO Hamster](https://raw.githubusercontent.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/master/banner.png)
 
 # We need you!
 
@@ -30,8 +30,8 @@ or you can build the project yourself.
 
 ## Manual building requirements
 
-- Python 3.8+
-- pip install -r requirements.txt
+- Python 3.10+
+- `python -m pip install .`
 - (optional) for development or automation, you can still provide read-only fallback credentials in `.env` or environment variables with the same names:
   ```env
   CHOMIKUJ_LOGIN=your_login
@@ -40,6 +40,16 @@ or you can build the project yourself.
 - (optional, GUI only) if `tkinter` is missing, install it from your system packages:
   Linux (Ubuntu/Debian): `sudo apt install python3-tk`
   macOS (Homebrew Python): `brew install python-tk`
+
+## Install with pipx
+
+Python users can install the current version directly from GitHub in an isolated environment:
+
+```bash
+pipx install "git+https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader.git"
+```
+
+This installs the `chomikuj-magic-cli` and `chomikuj-magic-gui` commands. From a local checkout, use `pipx install .` instead.
 
 # Quick start
 
@@ -51,7 +61,7 @@ Examples below show how to run the source files from the project directory.
 Choose a file, click one button to download or upload it, and everything just works:
 
 ```bash
-python3 chomikuj_magic_gui.py
+python3 -m chomikuj.gui
 ```
 
 ## Command line interface
@@ -59,55 +69,55 @@ python3 chomikuj_magic_gui.py
 Download a single file:
 
 ```bash
-python3 chomikuj_magic_command_line.py download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3"
+python3 -m chomikuj.cli download "https://chomikuj.pl/Emaus/materiały+audio/konferencje/ks_piotr_pawlukiewicz_mlodziez,21520803.mp3"
 ```
 
 Download files directly in a folder:
 
 ```bash
-python3 chomikuj_magic_command_line.py download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka"
+python3 -m chomikuj.cli download "https://chomikuj.pl/RysunekSatyryczny/Zbigniew+Jujka"
 ```
 
 Download a folder recursively with subfolders:
 
 ```bash
-python3 chomikuj_magic_command_line.py download -r "https://chomikuj.pl/Emaus/materiały+audio/konferencje"
+python3 -m chomikuj.cli download -r "https://chomikuj.pl/Emaus/materiały+audio/konferencje"
 ```
 
 Upload a file to the root directory:
 
 ```bash
-python3 chomikuj_magic_command_line.py upload ./file.txt
+python3 -m chomikuj.cli upload ./file.txt
 ```
 
 Upload a local folder recursively:
 
 ```bash
-python3 chomikuj_magic_command_line.py upload ./my_folder
+python3 -m chomikuj.cli upload ./my_folder
 ```
 
 Force uploading files even when the target folder already contains the same file names:
 
 ```bash
-python3 chomikuj_magic_command_line.py upload --force-upload-existing ./my_folder
+python3 -m chomikuj.cli upload --force-upload-existing ./my_folder
 ```
 
 Upload to a selected folder on your account:
 
 ```bash
-python3 chomikuj_magic_command_line.py upload ./file.txt --folder "Documents/Test"
+python3 -m chomikuj.cli upload ./file.txt --folder "Documents/Test"
 ```
 
 Use more download workers:
 
 ```bash
-python3 chomikuj_magic_command_line.py download -t 8 "https://chomikuj.pl/Adam26121996/Tapety+na+komórkę/Śmieszne"
+python3 -m chomikuj.cli download -t 8 "https://chomikuj.pl/Adam26121996/Tapety+na+komórkę/Śmieszne"
 ```
 
 Show help:
 
 ```bash
-python3 chomikuj_magic_command_line.py --help
+python3 -m chomikuj.cli --help
 ```
 
 # Warning

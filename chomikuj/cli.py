@@ -26,7 +26,6 @@ def normalize_threads(value):
 
 def build_parser(i18n):
     parser = argparse.ArgumentParser(
-        prog="chomikuj_magic_command_line.py",
         description=i18n("cli.description"),
         epilog=i18n("cli.epilog"),
     )

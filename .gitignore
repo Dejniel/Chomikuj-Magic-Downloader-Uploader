@@ -3,4 +3,5 @@ __pycache__
 hide.*
 build/
 dist/
+*.egg-info/
 *.spec
