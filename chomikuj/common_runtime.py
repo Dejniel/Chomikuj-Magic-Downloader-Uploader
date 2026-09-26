@@ -18,6 +18,10 @@ class ChomikujError(RuntimeError):
     pass
 
 
+class ApiCloudflareChallengeError(ChomikujError):
+    pass
+
+
 class FileUnavailableError(ChomikujError):
     def __init__(self, file_id, code=None, message="", i18n=None):
         text = ensure_i18n(i18n, language="en")("error.file_unavailable", file_id=file_id)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chomikuj-magic"
-version = "0.5.2"
+version = "0.6"
 description = "Desktop client for downloading and uploading files from Chomikuj.pl"
 readme = "README.md"
 requires-python = ">=3.10"

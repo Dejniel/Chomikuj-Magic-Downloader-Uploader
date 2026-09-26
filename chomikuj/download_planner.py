@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .common_runtime import ChomikujError, PasswordSkippedError
+from .common_runtime import ApiCloudflareChallengeError, ChomikujError, PasswordSkippedError
 from .download_reader_mobile import DownloadReaderMobile
 from .download_reader_soap import DownloadReaderSoap
 from .download_source import DownloadSourceMobile, DownloadSourceSoap
@@ -119,6 +119,8 @@ class DownloadPlanner:
             mobile_listing = self.mobile.list_folder(owner, folder_id)
         except PasswordSkippedError:
             return
+        except ApiCloudflareChallengeError:
+            raise
         except ChomikujError:
             if soap_folder is not None:
                 self._recursive_error(owner["name"], resolved_segments)
@@ -146,6 +148,8 @@ class DownloadPlanner:
                 raise exc
             if soap_result["tasks"] and not soap_result["is_exact_folder"]:
                 return soap_result["tasks"]
+            if isinstance(exc, ApiCloudflareChallengeError):
+                raise exc
             if soap_result["is_exact_folder"]:
                 self._recursive_error(soap_result["folder"]["owner_name"], self.soap.folder_segments(soap_result["folder"]))
             raise exc

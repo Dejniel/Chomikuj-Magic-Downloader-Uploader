@@ -8,7 +8,7 @@ from urllib.parse import quote, urlencode
 
 import requests
 
-from .common_runtime import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiRequestError, ChomikujError, is_timeout_error
+from .common_runtime import BASE_URL, RETRY_ATTEMPTS, RETRY_BACKOFF_SECONDS, SECRET_KEY, TIMEOUT, USER_AGENT, ApiCloudflareChallengeError, ApiRequestError, ChomikujError, is_timeout_error
 from .i18n import ensure_i18n
 
 
@@ -42,6 +42,24 @@ class ApiMobile:
 
     def _token(self, path_query, body=""):
         return hashlib.md5((path_query + body + SECRET_KEY)[1:].encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _is_cloudflare_challenge(response):
+        if response.headers.get("cf-mitigated", "").lower() == "challenge":
+            return True
+        body = response.text.lower()
+        content_type = response.headers.get("content-type", "").lower()
+        if "text/html" not in content_type and "<html" not in body:
+            return False
+        return any(
+            marker in body
+            for marker in (
+                "/cdn-cgi/challenge-platform/",
+                "challenges.cloudflare.com",
+                "<title>just a moment",
+                "cf-chl-",
+            )
+        )
 
     def _request(self, method, path, query=None, body=None, use_api_key=True):
         query = query or []
@@ -82,9 +100,12 @@ class ApiMobile:
                     time.sleep(RETRY_BACKOFF_SECONDS * attempt)
                     continue
                 raise ChomikujError(self.i18n("error.api_connection", method=method, path=path, error=exc)) from exc
+        cloudflare_challenge = self._is_cloudflare_challenge(response)
         if self.debug:
             self._debug(f"DEBUG HTTP {response.status_code}")
-            self._debug(response.text[:4000])
+            self._debug("DEBUG Cloudflare challenge response" if cloudflare_challenge else response.text[:4000])
+        if cloudflare_challenge:
+            raise ApiCloudflareChallengeError(self.i18n("error.api_cloudflare_challenge"))
         if response.ok:
             return response
         code = None
