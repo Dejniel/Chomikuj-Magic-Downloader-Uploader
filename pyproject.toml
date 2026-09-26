@@ -13,6 +13,7 @@ license-files = ["LICENSE"]
 dependencies = [
     "platformdirs>=4,<5",
     "requests>=2.32,<3",
+    "tkface>=0.2.3,<0.3",
 ]
 
 [project.scripts]

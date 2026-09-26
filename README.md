@@ -17,7 +17,7 @@ Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic
 
 - login to Chomikuj
 - download single files and folders, optionally with subfolders
-- upload local files to your own account
+- upload one or more local files or folders to your own account
 - skip files that already exist in the target upload folder by default
 - resume downloads through temporary `.part` files
 - chunked upload with resume

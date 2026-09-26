@@ -110,6 +110,7 @@ jobs:
             --clean \
             --onefile \
             --windowed \
+            --collect-data tkface \
             --paths . \
             --distpath dist \
             --workpath build/graphical \

@@ -19,11 +19,59 @@ except ModuleNotFoundError as exc:
     messagebox = None
     ttk = None
 
+if tk is not None:
+    from tkface import lang as dialog_folder_language
+    from tkface.dialog import pathchooser as dialog_folder
+
 from chomikuj import DownloadManager, UploadManager
 from chomikuj.common_env import ENV_LOGIN, ENV_PASSWORD, env_language, load_default_env
 from chomikuj.common_runtime import ChomikujError
 from chomikuj.config_store import ConfigStore
 from chomikuj.i18n import Translator
+
+
+DIALOG_FOLDER_TRANSLATIONS_PL = {
+    "Access Denied": "Odmowa dostępu",
+    "Access denied:": "Odmowa dostępu:",
+    "All files": "Wszystkie pliki",
+    "Cannot access:": "Brak dostępu:",
+    "Circular reference detected.": "Wykryto odwołanie cykliczne.",
+    "Collapse": "Zwiń",
+    "Copy Path": "Kopiuj ścieżkę",
+    "Directory not found:": "Nie znaleziono folderu:",
+    "Directory selected.": "Wybrano folder.",
+    "Displaying files...": "Wyświetlanie plików...",
+    "Empty folder": "Pusty folder",
+    "Error": "Błąd",
+    "Error loading directory:": "Błąd wczytywania folderu:",
+    "Error loading files:": "Błąd wczytywania plików:",
+    "Expand": "Rozwiń",
+    "Expand All": "Rozwiń wszystko",
+    "File": "Plik",
+    "File name:": "Nazwa pliku:",
+    "Files of type:": "Typ plików:",
+    "Folder": "Folder",
+    "Go": "Przejdź",
+    "Loading files...": "Wczytywanie plików...",
+    "Loading...": "Wczytywanie...",
+    "Maximum recursion depth reached.": "Osiągnięto maksymalną głębokość folderów.",
+    "Modified": "Zmodyfikowano",
+    "Name": "Nazwa",
+    "No forward history available": "Brak następnej lokalizacji w historii",
+    "Open": "Otwórz",
+    "Selected:": "Wybrano:",
+    "Size": "Rozmiar",
+    "The folder may have been moved or deleted.": "Folder mógł zostać przeniesiony lub usunięty.",
+    "Type": "Typ",
+    "Unknown": "Nieznany",
+    "You do not have permission to access this folder.": "Nie masz dostępu do tego folderu.",
+    "cancel": "Anuluj",
+    "file": "plik",
+    "files": "plików",
+    "folder": "folder",
+    "folders": "folderów",
+    "ok": "Wybierz",
+}
 
 
 if tk is not None:
@@ -244,8 +292,8 @@ if tk is not None:
             actions.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
             self.add_files_button = ttk.Button(actions, command=self._add_files)
             self.add_files_button.pack(side="left")
-            self.add_folder_button = ttk.Button(actions, command=self._add_folder)
-            self.add_folder_button.pack(side="left", padx=(6, 0))
+            self.add_folders_button = ttk.Button(actions, command=self._add_folders)
+            self.add_folders_button.pack(side="left", padx=(6, 0))
             self.upload_clear_button = ttk.Button(actions, command=lambda: self._clear_text(self.upload_text))
             self.upload_clear_button.pack(side="left", padx=(6, 0))
             self.upload_button = ttk.Button(actions, command=self._start_upload)
@@ -280,7 +328,7 @@ if tk is not None:
             self.upload_force_existing_check.configure(text=self.i18n("gui.upload.force_existing"))
             self.paths_frame.configure(text=self.i18n("gui.upload.paths"))
             self.add_files_button.configure(text=self.i18n("gui.upload.add_files"))
-            self.add_folder_button.configure(text=self.i18n("gui.upload.add_folder"))
+            self.add_folders_button.configure(text=self.i18n("gui.upload.add_folders"))
             self.upload_clear_button.configure(text=self.i18n("gui.clear"))
             self.upload_button.configure(text=self.i18n("gui.upload.start"))
             self._refresh_status()
@@ -372,10 +420,18 @@ if tk is not None:
             if paths:
                 self._append_lines(self.upload_text, paths)
 
-        def _add_folder(self):
-            path = filedialog.askdirectory(initialdir=os.getcwd())
-            if path:
-                self._append_lines(self.upload_text, [path])
+        def _add_folders(self):
+            dialog_folder_language.register("pl", DIALOG_FOLDER_TRANSLATIONS_PL, self)
+            self.tk.call("msgcat::mclocale", self.i18n.language)
+            paths = dialog_folder.askpath(
+                parent=self,
+                select="dir",
+                multiple=True,
+                initialdir=os.getcwd(),
+                title=self.i18n("gui.upload.select_folders"),
+            )
+            if paths:
+                self._append_lines(self.upload_text, paths)
 
         def _append_lines(self, widget, lines):
             existing = widget.get("1.0", "end-1c").strip()
@@ -419,7 +475,7 @@ if tk is not None:
                 self.upload_threads_scale,
                 self.upload_force_existing_check,
                 self.add_files_button,
-                self.add_folder_button,
+                self.add_folders_button,
                 self.upload_button,
                 self.upload_clear_button,
             ):
