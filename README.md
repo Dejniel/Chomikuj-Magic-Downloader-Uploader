@@ -2,7 +2,7 @@
 
 Alternative [desktop client](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases) for **[chomikuj.pl](https://chomikuj.pl)** that includes a **Downloader** and **Uploader**, supports recursive folder download/upload, and works asynchronously on many files at the same time. It replaces ChomikujBox and other chomikuj.pl apps and it's **fast**. Check the [list of supported features](#available-features)
 
-Now you can upload and download from chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed
+Now you can upload and download from chomikuj.pl on **Windows, Linux, and macOS** as a standalone tool using both Chomikuj's mobile JSON API and the old SOAP/web API where needed.
 
 Aby **pobrać program [przejdź tutaj](https://github.com/Dejniel/Chomikuj-Magic-Downloader-Uploader/releases/latest)**, a następnie w sekcji „Assets” wybierz plik „Chomikuj-Magic-GUI-...” dla swojego systemu operacyjnego. Po pobraniu uruchom i ciesz się Chomikiem i [wesprzyj moją pracę](https://buymeacoffee.com/dejniel)
 
@@ -40,6 +40,101 @@ or you can build the project yourself.
 - (optional, GUI only) if `tkinter` is missing, install it from your system packages:
   Linux (Ubuntu/Debian): `sudo apt install python3-tk`
   macOS (Homebrew Python): `brew install python-tk`
+
+## Credential configuration
+
+The program accepts credentials in several ways. These are checked in order of precedence when the app starts:
+
+1. Saved login in the local config file
+2. Environment variables (`CHOMIKUJ_LOGIN`, `CHOMIKUJ_PASSWORD`)
+3. `.env` file in the project or executable directory
+4. Interactive prompts in the CLI or GUI
+
+### Saved config file
+
+The app stores remembered login data in a local INI file via `ConfigStore`.
+
+Location depends on platform:
+
+- Linux: `~/.config/Chomikuj Magic/credentials.ini`
+- macOS: `~/Library/Application Support/Chomikuj Magic/credentials.ini`
+- Windows: `%APPDATA%\Chomikuj Magic\credentials.ini`
+
+The file is plain text and is stored with restrictive permissions when supported. It contains sections such as:
+
+```ini
+[login]
+username = your_login
+password = your_password
+```
+
+The app can also remember additional passwords for folders or owners in the same file:
+
+```ini
+[owner_passwords]
+owner_key = owner_password
+
+[folder_passwords]
+owner_key|folder_id = folder_password
+```
+
+> Warning: the app stores passwords in a local plain-text INI file; do not rely on this for protected or secret credentials.
+
+### Environment variables
+
+For automation, CI, or shell scripts, set:
+
+```bash
+export CHOMIKUJ_LOGIN="your_login"
+export CHOMIKUJ_PASSWORD="your_password"
+python3 -m chomikuj.cli download "https://chomikuj.pl/..."
+```
+
+Or inline for a single command:
+
+```bash
+CHOMIKUJ_LOGIN="your_login" CHOMIKUJ_PASSWORD="your_password" python3 -m chomikuj.cli upload ./file.txt
+```
+
+### `.env` file
+
+A `.env` file is also supported. The app reads it from the current working directory or from the directory next to the executable. Example:
+
+```env
+CHOMIKUJ_LOGIN=your_login
+CHOMIKUJ_PASSWORD=your_password
+CHOMIKUJ_LANGUAGE=en
+```
+
+The keys are the same as the environment variables, and values in the process environment override the ones from `.env`.
+
+### Interactive login prompts
+
+If no saved credentials, environment variables, or `.env` values are available, the program will ask for username and password interactively.
+
+This is the fallback behavior used by the CLI and GUI when you have not configured credentials yet.
+
+### Programmatic API usage
+
+If you are using the library directly in Python, you can also provide a custom `password_provider` callback to supply passwords dynamically:
+
+```python
+from chomikuj import DownloadManager
+
+
+def my_password_provider(prompt):
+    # Replace this with your own logic
+    return "your_password"
+
+
+downloader = DownloadManager(
+    "your_login",
+    "your_password",
+    max_threads=5,
+    output_dir="./downloads",
+    password_provider=my_password_provider,
+)
+```
 
 ## Install with pipx
 
@@ -123,6 +218,6 @@ python3 -m chomikuj.cli --help
 # Warning
 
 - Theoretically, I support Windows, macOS, and Linux, but I test builds only on Ubuntu-like systems—if you need to run this elsewhere, please report issues or submit a fix :P
-- This project is open source and may use non-public APIs - there is no guarantee of anything. Charges may be applied while using it, so do not use it if you are not sure what you are doing. 
+- This project is open source and may use non-public APIs - there is no guarantee of anything. Charges may be applied while using it, so do not use it if you are not sure what you are doing.
 - Remembered passwords are stored locally in a plain INI config file, not in an encrypted system keychain.
 - **THE PROGRAM NEVER SHOWS A WARNING ABOUT THE SIZE OF DOWNLOADED FOLDERS**
